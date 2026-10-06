@@ -98,3 +98,28 @@ export function playSuccessChime() {
     // Ignore
   }
 }
+
+// Mobile SMS Alert tone (distinct double-beep)
+export function playSmsChime() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    [880, 1174.66].forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+      gain.gain.setValueAtTime(0, now + idx * 0.1);
+      gain.gain.linearRampToValueAtTime(0.14, now + idx * 0.1 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.1);
+      osc.stop(now + idx * 0.1 + 0.25);
+    });
+  } catch {
+    // Ignore
+  }
+}
+

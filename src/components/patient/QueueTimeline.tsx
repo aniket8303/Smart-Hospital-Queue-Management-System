@@ -27,27 +27,31 @@ export function QueueTimeline() {
 
       <div className="space-y-3.5">
         {/* Completed recent items */}
-        {recentCompleted.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 text-xs"
-          >
-            <div className="flex items-center gap-3.5">
-              <span className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-750 flex items-center justify-center font-mono font-black text-slate-700 dark:text-slate-300">
-                {item.tokenNumber}
-              </span>
-              <div>
-                <span className="font-bold text-slate-700 dark:text-slate-300 line-through">
-                  {item.patient.name}
+        {recentCompleted.map((item) => {
+          const isMeCompleted = item.tokenNumber === currentUserToken;
+          const displayCompletedName = isMeCompleted ? item.patient.name : `Patient (${item.tokenNumber})`;
+          return (
+            <div
+              key={item.id}
+              className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 text-xs"
+            >
+              <div className="flex items-center gap-3.5">
+                <span className="w-9 h-9 rounded-xl bg-slate-200 dark:bg-slate-750 flex items-center justify-center font-mono font-black text-slate-700 dark:text-slate-300">
+                  {item.tokenNumber}
                 </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">General Consultation Completed</span>
+                <div>
+                  <span className="font-bold text-slate-700 dark:text-slate-300 line-through">
+                    {displayCompletedName}
+                  </span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Consultation Completed</span>
+                </div>
               </div>
+              <span className="px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase">
+                Completed
+              </span>
             </div>
-            <span className="px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase">
-              Completed
-            </span>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Active queue list with Framer Motion layout animation */}
         <AnimatePresence initial={false}>
@@ -56,6 +60,8 @@ export function QueueTimeline() {
             const isConsulting = item.status === 'IN_CONSULTATION';
             const isNext = item.status === 'NEXT';
             const isEmergency = item.priority === 'URGENT';
+            const displayName = isMe ? item.patient.name : `Patient ${item.tokenNumber}`;
+            const displayReason = isMe ? item.reason : 'Outpatient consultation in progress';
 
             return (
               <motion.div
@@ -93,7 +99,7 @@ export function QueueTimeline() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-black text-base text-slate-900 dark:text-white">
-                        {item.patient.name}
+                        {displayName}
                       </span>
                       {isMe && (
                         <span className="px-2 py-0.5 rounded-full bg-cyan-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
@@ -107,7 +113,7 @@ export function QueueTimeline() {
                       )}
                     </div>
                     <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium line-clamp-1">
-                      {item.reason}
+                      {displayReason}
                     </p>
                   </div>
                 </div>

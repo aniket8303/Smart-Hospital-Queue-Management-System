@@ -18,9 +18,11 @@ import {
 } from 'lucide-react';
 
 export default function QueueDisplayPage() {
-  const { queue, soundEnabled, setSoundEnabled } = useQueue();
+  const { queue, currentRole, soundEnabled, setSoundEnabled } = useQueue();
   const [currentTime, setCurrentTime] = useState('');
   const [currentDate, setCurrentDate] = useState('');
+
+  const returnUrl = currentRole ? `/${currentRole}` : '/';
 
   useEffect(() => {
     const updateTime = () => {
@@ -34,8 +36,12 @@ export default function QueueDisplayPage() {
   }, []);
 
   const nowServing = queue.find((q) => q.status === 'IN_CONSULTATION') || queue[0];
-  const nextInLine = queue.find((q) => q.status === 'NEXT') || queue[1];
-  const thenInLine = queue.filter((q) => q.id !== nowServing?.id && q.id !== nextInLine?.id)[0];
+  const waitingList = queue.filter((q) => q.id !== nowServing?.id && q.status !== 'COMPLETED' && q.status !== 'CANCELLED');
+  const nextInLine = waitingList.find((q) => q.status === 'NEXT') || waitingList[0];
+  const upcomingStandby = waitingList.filter((q) => q.id !== nextInLine?.id);
+  const standbyItem1 = upcomingStandby[0];
+  const standbyItem2 = upcomingStandby[1];
+  const estimatedOverallWait = standbyItem1?.estimatedWaitMinutes || 15;
 
   const handleFullScreen = () => {
     if (typeof document !== 'undefined') {
@@ -57,9 +63,9 @@ export default function QueueDisplayPage() {
       <header className="relative z-10 flex items-center justify-between border-b border-slate-800/80 pb-6">
         <div className="flex items-center gap-4">
           <Link
-            href="/patient"
+            href={returnUrl}
             className="p-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"
-            title="Exit to Patient View"
+            title={currentRole ? `Exit to ${currentRole} Dashboard` : "Exit to Home"}
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
@@ -79,8 +85,21 @@ export default function QueueDisplayPage() {
           </div>
         </div>
 
-        {/* Live Clock & Department */}
+        {/* Live Clock & Department & Daily Tokens */}
         <div className="flex items-center gap-6">
+          {/* Tokens generated today: 142 */}
+          <div className="hidden md:flex items-center gap-3 px-4 py-2 rounded-2xl bg-slate-900 border border-cyan-500/30 shadow-inner">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+            <div>
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">
+                Daily Intake
+              </span>
+              <span className="text-base font-black font-mono text-cyan-300">
+                Tokens generated today: <span className="text-white">142</span>
+              </span>
+            </div>
+          </div>
+
           <div className="text-right hidden sm:block">
             <div className="text-2xl font-black font-mono tracking-tight text-cyan-400">
               {currentTime}
@@ -173,19 +192,19 @@ export default function QueueDisplayPage() {
             </motion.div>
           </div>
 
-          {/* NEXT & THEN UPCOMING CARDS (5 cols) */}
-          <div className="lg:col-span-5 space-y-5">
+          {/* NEXT & UPCOMING CARDS (5 cols) */}
+          <div className="lg:col-span-5 space-y-4">
             {/* NEXT CARD */}
             <motion.div
               layout
-              className="p-6 sm:p-8 rounded-3xl border border-blue-500/30 bg-slate-900/80 shadow-xl"
+              className="p-6 sm:p-7 rounded-3xl border border-cyan-500/40 bg-slate-900/90 shadow-xl relative overflow-hidden"
             >
               <div className="flex items-center justify-between text-xs uppercase font-bold tracking-widest text-slate-400 mb-2">
                 <span className="text-cyan-400 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping-subtle" />
-                  NEXT IN LINE
+                  NEXT
                 </span>
-                <span className="font-mono text-cyan-300">Proceed to Door</span>
+                <span className="font-mono text-cyan-300">Room 102</span>
               </div>
 
               <div className="flex items-baseline justify-between">
@@ -196,32 +215,59 @@ export default function QueueDisplayPage() {
                   {nextInLine?.patient.name || 'Waiting'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-2 font-mono">
-                Estimated wait: ~2 minutes • Room 102
+              <p className="text-xs text-slate-400 mt-2 font-mono">
+                Please prepare to enter Door 102
               </p>
             </motion.div>
 
-            {/* THEN CARD */}
+            {/* UPCOMING SEQUENCE (A-042, A-043, etc.) */}
             <motion.div
               layout
-              className="p-6 sm:p-8 rounded-3xl border border-slate-800 bg-slate-900/50 shadow-xl"
+              className="p-5 sm:p-6 rounded-3xl border border-slate-800 bg-slate-900/60 shadow-xl space-y-3"
             >
-              <div className="flex items-center justify-between text-xs uppercase font-bold tracking-widest text-slate-400 mb-2">
-                <span>THEN</span>
-                <span className="font-mono text-slate-500">In Lounge</span>
+              <div className="flex items-center justify-between text-xs uppercase font-bold tracking-widest text-slate-400">
+                <span>STANDBY IN LOUNGE</span>
+                <span className="text-slate-500 font-mono">Sequence</span>
               </div>
 
-              <div className="flex items-baseline justify-between">
-                <span className="text-4xl sm:text-5xl font-black font-mono text-slate-400">
-                  {thenInLine?.tokenNumber || '—'}
-                </span>
-                <span className="text-sm font-medium text-slate-400">
-                  {thenInLine?.patient.name || 'Waiting'}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                  <div className="text-2xl font-black font-mono text-slate-200">
+                    {standbyItem1?.tokenNumber || 'A-042'}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate mt-0.5">
+                    {standbyItem1?.patient.name || 'Aniket Parekar'}
+                  </div>
+                  <div className="text-[10px] text-cyan-400 font-mono mt-1">
+                    ~{standbyItem1?.estimatedWaitMinutes || 15} min
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
+                  <div className="text-2xl font-black font-mono text-slate-400">
+                    {standbyItem2?.tokenNumber || 'A-043'}
+                  </div>
+                  <div className="text-xs text-slate-500 truncate mt-0.5">
+                    {standbyItem2?.patient.name || 'Aarav Shah'}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono mt-1">
+                    ~{standbyItem2?.estimatedWaitMinutes || 20} min
+                  </div>
+                </div>
+              </div>
+
+              {/* ESTIMATED WAIT TIME BANNER */}
+              <div className="p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-800/60 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs uppercase font-bold text-slate-300">
+                    Estimated waiting
+                  </span>
+                </div>
+                <span className="text-base font-black font-mono text-cyan-300">
+                  ~{estimatedOverallWait} minutes
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-2 font-mono">
-                Estimated wait: ~{thenInLine?.estimatedWaitMinutes || 15} minutes
-              </p>
             </motion.div>
           </div>
 

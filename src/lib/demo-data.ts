@@ -121,6 +121,9 @@ export const INITIAL_QUEUE: QueueItem[] = [
     consultationStartedAt: new Date(Date.now() - 6 * 60000).toISOString(),
     status: 'IN_CONSULTATION',
     priority: 'NORMAL',
+    source: 'RECEPTION',
+    tokenType: 'PHYSICAL',
+    queueDay: '2026-10-06',
     reason: 'Follow-up for seasonal bronchospasm and medication renewal.',
     notes: 'Prescribed Levolin inhaler and nebulization as needed.',
     vitals: { bp: '122/80', pulse: 74, temp: '98.4 F', spO2: 99 },
@@ -145,6 +148,9 @@ export const INITIAL_QUEUE: QueueItem[] = [
     joinedAt: new Date(Date.now() - 20 * 60000).toISOString(),
     status: 'NEXT',
     priority: 'NORMAL',
+    source: 'MOBILE',
+    tokenType: 'DIGITAL',
+    queueDay: '2026-10-06',
     reason: 'General consultation, recurrent headaches and fatigue.',
     vitals: { bp: '118/76', pulse: 80, temp: '98.6 F', spO2: 98 },
     estimatedWaitMinutes: 2,
@@ -168,6 +174,13 @@ export const INITIAL_QUEUE: QueueItem[] = [
     joinedAt: new Date(Date.now() - 15 * 60000).toISOString(),
     status: 'WAITING',
     priority: 'NORMAL',
+    source: 'KIOSK',
+    tokenType: 'DIGITAL',
+    queueDay: '2026-10-06',
+    consultationFee: 300,
+    transactionId: 'MQ-2026-1042',
+    paymentMethod: 'UPI',
+    paymentStatus: 'SUCCESS',
     reason: 'Mild viral fever symptoms, throat discomfort for 2 days.',
     vitals: { bp: '120/80', pulse: 78, temp: '99.1 F', spO2: 99 },
     estimatedWaitMinutes: 15,
@@ -191,6 +204,9 @@ export const INITIAL_QUEUE: QueueItem[] = [
     joinedAt: new Date(Date.now() - 10 * 60000).toISOString(),
     status: 'WAITING',
     priority: 'NORMAL',
+    source: 'RECEPTION',
+    tokenType: 'PHYSICAL',
+    queueDay: '2026-10-06',
     reason: 'Routine pre-employment wellness physical and CBC report review.',
     vitals: { bp: '124/82', pulse: 72, temp: '98.5 F', spO2: 98 },
     estimatedWaitMinutes: 20,
@@ -214,6 +230,9 @@ export const INITIAL_QUEUE: QueueItem[] = [
     joinedAt: new Date(Date.now() - 5 * 60000).toISOString(),
     status: 'WAITING',
     priority: 'NORMAL',
+    source: 'MOBILE',
+    tokenType: 'DIGITAL',
+    queueDay: '2026-10-06',
     reason: 'Chronic acidity, gastric reflux consultation.',
     vitals: { bp: '128/84', pulse: 82, temp: '98.6 F', spO2: 97 },
     estimatedWaitMinutes: 25,
@@ -242,6 +261,9 @@ export const COMPLETED_SEED: QueueItem[] = [
     consultationEndedAt: new Date(Date.now() - 28 * 60000).toISOString(),
     status: 'COMPLETED',
     priority: 'NORMAL',
+    source: 'RECEPTION',
+    tokenType: 'PHYSICAL',
+    queueDay: '2026-10-06',
     reason: 'Seasonal allergy prescription.',
     notes: 'Prescribed Cetirizine 10mg once daily.',
     estimatedWaitMinutes: 0,
@@ -267,11 +289,32 @@ export const COMPLETED_SEED: QueueItem[] = [
     consultationEndedAt: new Date(Date.now() - 15 * 60000).toISOString(),
     status: 'COMPLETED',
     priority: 'NORMAL',
+    source: 'MOBILE',
+    tokenType: 'DIGITAL',
+    queueDay: '2026-10-06',
     reason: 'Hypertension monitoring and dose titration.',
     notes: 'BP stabilized at 126/82. Continue Amlodipine 5mg.',
     estimatedWaitMinutes: 0,
   },
 ];
+
+export const KIOSK_ANALYTICS: import('./types').KioskAnalytics = {
+  tokensToday: 83,
+  avgCompletionSeconds: 45,
+  paymentSuccessRate: 99.2,
+  abandonedSessionsCount: 3,
+  peakHour: '10:00 AM - 11:30 AM',
+  bySource: {
+    reception: 42,
+    mobile: 67,
+    kiosk: 83,
+  },
+  processingTimes: {
+    receptionMin: 3.0,
+    mobileMin: 1.5,
+    kioskSeconds: 45,
+  },
+};
 
 export const HOURLY_PATIENT_FLOW = [
   { hour: '08:00', patients: 12, completed: 8, avgWait: 11 },
@@ -291,3 +334,124 @@ export const DEPARTMENT_WAIT_STATS = [
   { department: 'Pediatrics', avgWait: 12, patientsToday: 28, doctors: 2 },
   { department: 'Dermatology', avgWait: 14, patientsToday: 20, doctors: 2 },
 ];
+
+export const INITIAL_NOTIFICATIONS: import('./types').AppNotification[] = [
+  // Patient notifications
+  {
+    id: 'notif-p-1',
+    target: 'patient',
+    title: 'Token A-042 Confirmed',
+    description: 'Your token A-042 is booked for Dr. Priya Sharma (Room 102). Est. wait: ~15 min.',
+    type: 'success',
+    timestamp: '10 min ago',
+    read: false,
+    smsDetails: {
+      phone: '+91 91234 56789',
+      body: 'MediQueue: Token A-042 issued for General Medicine (Room 102). 2 patients ahead. Est. wait ~15m.',
+    },
+  },
+  {
+    id: 'notif-p-2',
+    target: 'patient',
+    title: 'Queue Position Update',
+    description: 'Queue advanced: 2 patients ahead for Dr. Priya Sharma in Room 102.',
+    type: 'info',
+    timestamp: '3 min ago',
+    read: false,
+    smsDetails: {
+      phone: '+91 91234 56789',
+      body: 'MediQueue: 2 patients ahead in line. Please remain seated near OPD Lounge A.',
+    },
+  },
+  {
+    id: 'notif-p-3',
+    target: 'patient',
+    title: 'Appointment Reminder',
+    description: 'Your consultation with Dr. Priya Sharma is scheduled for today at 11:30 AM.',
+    type: 'info',
+    timestamp: '30 min ago',
+    read: true,
+  },
+
+  // Staff notifications
+  {
+    id: 'notif-s-1',
+    target: 'staff',
+    title: 'Walk-In Registration',
+    description: 'Front Desk 1 issued token A-043 for General Medicine triage.',
+    type: 'info',
+    timestamp: '5 min ago',
+    read: false,
+  },
+  {
+    id: 'notif-s-2',
+    target: 'staff',
+    title: 'Room 102 Turnover',
+    description: 'Dr. Priya Sharma is ready for consultation advancement.',
+    type: 'success',
+    timestamp: '12 min ago',
+    read: true,
+  },
+
+  // Doctor notifications
+  {
+    id: 'notif-d-1',
+    target: 'doctor',
+    title: 'Next Patient Queued',
+    description: 'Patient Aniket Parekar (Token A-042) is queued at OPD Lounge A.',
+    type: 'info',
+    timestamp: '8 min ago',
+    read: false,
+  },
+  {
+    id: 'notif-d-2',
+    target: 'doctor',
+    title: 'Vitals Recorded (Room 102)',
+    description: 'Vitals recorded for Token A-041: BP 118/76, SpO2 99%, Pulse 72 bpm.',
+    type: 'success',
+    timestamp: '18 min ago',
+    read: true,
+  },
+
+  // Admin notifications
+  {
+    id: 'notif-a-1',
+    target: 'admin',
+    title: 'Hospital Wait Benchmark Met',
+    description: 'Average OPD wait time is 17 min, beating benchmark target by 4 min.',
+    type: 'success',
+    timestamp: '15 min ago',
+    read: false,
+  },
+  {
+    id: 'notif-a-2',
+    target: 'admin',
+    title: 'Daily Outpatient Milestone',
+    description: 'Hospital has successfully processed 128 outpatient tokens today.',
+    type: 'info',
+    timestamp: '45 min ago',
+    read: true,
+  },
+];
+
+export const INITIAL_SMS_LOGS: import('./types').SMSAlert[] = [
+  {
+    id: 'sms-1',
+    recipientPhone: '+91 91234 56789',
+    recipientName: 'Aniket Parekar',
+    tokenNumber: 'A-042',
+    message: 'MediQueue: Welcome Aniket. Token A-042 is confirmed for Dr. Priya Sharma in Room 102. 2 patients ahead. Est wait: ~15m.',
+    sentAt: '10 min ago',
+    status: 'DELIVERED',
+  },
+  {
+    id: 'sms-2',
+    recipientPhone: '+91 91234 56789',
+    recipientName: 'Aniket Parekar',
+    tokenNumber: 'A-042',
+    message: 'MediQueue Alert: Outpatient queue advanced. You are currently #2 in line. Please remain near Door 102.',
+    sentAt: '3 min ago',
+    status: 'DELIVERED',
+  },
+];
+

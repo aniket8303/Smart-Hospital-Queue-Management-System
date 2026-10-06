@@ -4,8 +4,8 @@ import "./globals.css";
 import { QueueProvider } from "@/context/QueueContext";
 import { Navbar } from "@/components/common/Navbar";
 import { Footer } from "@/components/common/Footer";
-import { DemoControlBar } from "@/components/common/DemoControlBar";
 import { ToastContainer } from "@/components/common/ToastContainer";
+import { SMSAlertBanner } from "@/components/common/SMSAlertBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,9 +35,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 selection:bg-cyan-500/20 selection:text-cyan-900 dark:selection:text-cyan-200">
         <QueueProvider>
           <Navbar />
+          <SMSAlertBanner />
           <main className="flex-1 w-full">{children}</main>
           <Footer />
-          <DemoControlBar />
           <ToastContainer />
         </QueueProvider>
       </body>

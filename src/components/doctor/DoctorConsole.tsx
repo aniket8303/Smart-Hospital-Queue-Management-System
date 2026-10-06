@@ -14,7 +14,8 @@ import {
   AlertCircle,
   ChevronRight,
   Sparkles,
-  HeartPulse
+  HeartPulse,
+  Bell
 } from 'lucide-react';
 
 export function DoctorConsole() {
@@ -22,7 +23,8 @@ export function DoctorConsole() {
     queue, 
     callNext, 
     startConsultation, 
-    completeConsultation 
+    completeConsultation,
+    notifications 
   } = useQueue();
 
   const currentConsultation = queue.find((q) => q.status === 'IN_CONSULTATION') || queue.find((q) => q.status === 'NEXT');
@@ -261,6 +263,41 @@ export function DoctorConsole() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+
+          {/* Clinical Updates & Role-Specific Notifications */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <h3 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                  Clinical Alerts
+                </h3>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400">Live Feed</span>
+            </div>
+
+            <div className="space-y-2.5">
+              {notifications
+                .filter((n) => n.target === 'doctor' || n.target === 'all')
+                .slice(0, 4)
+                .map((notif) => (
+                  <div
+                    key={notif.id}
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <strong className="text-slate-900 dark:text-white font-bold">{notif.title}</strong>
+                      <span className="text-[10px] text-slate-400">{notif.timestamp}</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                      {notif.description}
+                    </p>
+                  </div>
+                ))}
             </div>
           </div>
         </div>

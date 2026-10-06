@@ -12,11 +12,16 @@ import {
   User, 
   Phone,
   Flame,
-  ArrowRight
+  ArrowRight,
+  Smartphone,
+  Monitor,
+  Printer
 } from 'lucide-react';
 import { QueueItem } from '@/lib/types';
+import { PrintTokenModal } from '@/components/common/PrintTokenModal';
 
 export function StaffQueueTable() {
+  const [printingItem, setPrintingItem] = React.useState<QueueItem | null>(null);
   const { 
     queue, 
     callNext, 
@@ -108,6 +113,7 @@ export function StaffQueueTable() {
               <th className="py-4 px-4 sm:px-6">Token</th>
               <th className="py-4 px-4">Patient</th>
               <th className="py-4 px-4 hidden md:table-cell">Doctor</th>
+              <th className="py-4 px-4 hidden sm:table-cell">Source</th>
               <th className="py-4 px-4">Status</th>
               <th className="py-4 px-4">Wait Time</th>
               <th className="py-4 px-4 hidden sm:table-cell">Priority</th>
@@ -118,7 +124,7 @@ export function StaffQueueTable() {
             <AnimatePresence initial={false}>
               {queue.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
+                  <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                     No patients currently waiting in this queue.
                   </td>
                 </tr>
@@ -178,6 +184,26 @@ export function StaffQueueTable() {
                         </div>
                       </td>
 
+                      {/* TOKEN SOURCE */}
+                      <td className="py-4 px-4 hidden sm:table-cell">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                          item.source === 'RECEPTION'
+                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                            : item.source === 'MOBILE'
+                            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                            : 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
+                        }`}>
+                          {item.source === 'RECEPTION' ? (
+                            <User className="w-3 h-3 text-amber-500" />
+                          ) : item.source === 'MOBILE' ? (
+                            <Smartphone className="w-3 h-3 text-blue-500" />
+                          ) : (
+                            <Monitor className="w-3 h-3 text-cyan-500" />
+                          )}
+                          <span>{item.source || 'RECEPTION'}</span>
+                        </span>
+                      </td>
+
                       {/* STATUS */}
                       <td className="py-4 px-4">
                         {getStatusBadge(item.status)}
@@ -202,6 +228,15 @@ export function StaffQueueTable() {
                       {/* ACTION BUTTONS */}
                       <td className="py-4 px-4 sm:px-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Print Slip Icon */}
+                          <button
+                            onClick={() => setPrintingItem(item)}
+                            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title="Print physical token ticket slip"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-slate-500" />
+                          </button>
+
                           {isConsulting ? (
                             <button
                               onClick={() => completeConsultation(item.id)}
@@ -245,6 +280,13 @@ export function StaffQueueTable() {
           </tbody>
         </table>
       </div>
+
+      {/* Print Slip Modal */}
+      <PrintTokenModal
+        isOpen={!!printingItem}
+        onClose={() => setPrintingItem(null)}
+        item={printingItem}
+      />
     </div>
   );
 }

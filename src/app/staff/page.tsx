@@ -15,12 +15,14 @@ import {
   Play, 
   PlusCircle, 
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Bell,
+  Ticket
 } from 'lucide-react';
-import { JoinQueueModal } from '@/components/patient/JoinQueueModal';
+import { ReceptionTokenModal } from '@/components/staff/ReceptionTokenModal';
 
 export default function StaffDashboardPage() {
-  const { callNext, resetQueue, addEmergencyPatient } = useQueue();
+  const { callNext, resetQueue, addEmergencyPatient, notifications } = useQueue();
   const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'doctors' | 'settings'>('overview');
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
 
@@ -83,10 +85,10 @@ export default function StaffDashboardPage() {
 
             <button
               onClick={() => setIsAddPatientOpen(true)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-colors"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 font-bold text-xs transition-colors shadow-sm"
             >
-              <PlusCircle className="w-4 h-4 text-cyan-500" />
-              <span>Register Walk-in Patient</span>
+              <Ticket className="w-4 h-4 text-cyan-500" />
+              <span>Create Patient Token (Receptionist)</span>
             </button>
 
             <button
@@ -95,6 +97,43 @@ export default function StaffDashboardPage() {
             >
               <span>+ Direct Emergency Triage</span>
             </button>
+          </div>
+
+          {/* Operational Alerts & Triage Activity */}
+          <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+                  <Bell className="w-3.5 h-3.5" />
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-700 dark:text-slate-300">
+                  Staff Ops Alerts
+                </span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              {notifications
+                .filter((n) => n.target === 'staff' || n.target === 'all')
+                .slice(0, 4)
+                .map((notif) => (
+                  <div
+                    key={notif.id}
+                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 text-xs space-y-0.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <strong className="text-slate-900 dark:text-white text-[11px] font-bold truncate">
+                        {notif.title}
+                      </strong>
+                      <span className="text-[9px] text-slate-400 shrink-0">{notif.timestamp}</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300 text-[10px] leading-tight">
+                      {notif.description}
+                    </p>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 
@@ -105,7 +144,7 @@ export default function StaffDashboardPage() {
 
       </div>
 
-      <JoinQueueModal
+      <ReceptionTokenModal
         isOpen={isAddPatientOpen}
         onClose={() => setIsAddPatientOpen(false)}
       />

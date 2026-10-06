@@ -17,7 +17,8 @@ import {
   User, 
   CheckCircle2, 
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare
 } from 'lucide-react';
 import { QueueItem } from '@/lib/types';
 
@@ -327,6 +328,14 @@ export function JoinQueueModal({ isOpen, onClose, onJoinedSuccess }: JoinQueueMo
                     <strong className="text-emerald-400 font-bold">~15 minutes</strong>
                   </div>
                 </div>
+              </div>
+
+              {/* SMS Alert Confirmation Banner */}
+              <div className="flex items-center justify-center gap-2.5 p-3 rounded-2xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-xs text-cyan-800 dark:text-cyan-300 max-w-sm mx-auto">
+                <MessageSquare className="w-4 h-4 text-cyan-500 shrink-0" />
+                <span className="text-left font-medium">
+                  Instant SMS alerts enabled for <strong>{phone || '+91 98765 43210'}</strong>. You will receive updates as your turn approaches!
+                </span>
               </div>
             </div>
           )}

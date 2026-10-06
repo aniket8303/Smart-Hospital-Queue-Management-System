@@ -1,9 +1,31 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { QueueItem, Doctor, Department, UserRole, DemoStats } from '@/lib/types';
-import { INITIAL_QUEUE, INITIAL_DOCTORS, INITIAL_DEPARTMENTS, COMPLETED_SEED } from '@/lib/demo-data';
-import { playHospitalChime, playSuccessChime, playClickSound } from '@/lib/audio';
+import { 
+  QueueItem, 
+  Doctor, 
+  Department, 
+  UserRole, 
+  UserSession, 
+  ROLE_PROFILES, 
+  DemoStats, 
+  AppNotification, 
+  SMSAlert, 
+  NotificationTarget,
+  TokenSource,
+  TokenType,
+  KioskSession,
+  KioskLanguage
+} from '@/lib/types';
+import { 
+  INITIAL_QUEUE, 
+  INITIAL_DOCTORS, 
+  INITIAL_DEPARTMENTS, 
+  COMPLETED_SEED, 
+  INITIAL_NOTIFICATIONS, 
+  INITIAL_SMS_LOGS 
+} from '@/lib/demo-data';
+import { playHospitalChime, playSuccessChime, playClickSound, playSmsChime } from '@/lib/audio';
 
 export interface ToastMessage {
   id: string;
@@ -18,16 +40,40 @@ interface QueueContextType {
   completedQueue: QueueItem[];
   doctors: Doctor[];
   departments: Department[];
-  currentUserToken: string;
-  currentRole: UserRole;
+  currentUserToken: string | null;
+  currentRole: UserRole | null;
+  currentSession: UserSession | null;
+  logout: () => void;
   toasts: ToastMessage[];
+  notifications: AppNotification[];
+  smsLogs: SMSAlert[];
+  activeSmsBanner: SMSAlert | null;
+  dismissSmsBanner: () => void;
+  currentQueueDay: string;
+  resetDailyQueue: (newDay?: string) => void;
+  kioskSession: KioskSession;
+  updateKioskSession: (partial: Partial<KioskSession>) => void;
+  resetKioskSession: () => void;
+  addNotification: (data: {
+    target: NotificationTarget;
+    title: string;
+    description: string;
+    type?: 'info' | 'success' | 'warning' | 'urgent';
+    sms?: {
+      phone: string;
+      body: string;
+    };
+  }) => void;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: (role?: NotificationTarget) => void;
+  sendTestSms: (customMsg?: string) => void;
   stats: DemoStats;
   soundEnabled: boolean;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
   setTheme: (t: 'light' | 'dark') => void;
   setCurrentUserToken: (token: string) => void;
-  setCurrentRole: (role: UserRole) => void;
+  setCurrentRole: (role: UserRole | null) => void;
   setSoundEnabled: (enabled: boolean) => void;
   callNext: (doctorId?: string) => void;
   startConsultation: (tokenId: string) => void;
@@ -35,10 +81,18 @@ interface QueueContextType {
   skipPatient: (tokenId: string) => void;
   joinQueue: (data: {
     patientName: string;
+    age?: number;
+    gender?: 'Male' | 'Female' | 'Other';
     departmentId: string;
     doctorId: string;
-    reason: string;
+    reason?: string;
     phone?: string;
+    source?: TokenSource;
+    tokenType?: TokenType;
+    consultationFee?: number;
+    transactionId?: string;
+    paymentMethod?: 'UPI' | 'CARD' | 'CASH';
+    paymentStatus?: 'SUCCESS' | 'PENDING' | 'WAIVED';
   }) => QueueItem;
   resetQueue: () => void;
   addEmergencyPatient: () => void;
@@ -57,14 +111,46 @@ const STORAGE_KEY_USER_TOKEN = 'mediqueue_current_token_v1';
 const STORAGE_KEY_ROLE = 'mediqueue_current_role_v1';
 const STORAGE_KEY_SOUND = 'mediqueue_sound_enabled_v1';
 const STORAGE_KEY_THEME = 'mediqueue_theme_v1';
+const STORAGE_KEY_NOTIFICATIONS = 'mediqueue_notifications_v1';
+const STORAGE_KEY_SMS_LOGS = 'mediqueue_sms_logs_v1';
 
 export function QueueProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<QueueItem[]>(INITIAL_QUEUE);
   const [completedQueue, setCompletedQueue] = useState<QueueItem[]>(COMPLETED_SEED);
   const [doctors] = useState<Doctor[]>(INITIAL_DOCTORS);
   const [departments] = useState<Department[]>(INITIAL_DEPARTMENTS);
-  const [currentUserToken, setCurrentUserTokenState] = useState<string>('A-042');
-  const [currentRole, setCurrentRoleState] = useState<UserRole>('patient');
+  const [currentUserToken, setCurrentUserTokenState] = useState<string | null>(null);
+  const [currentRole, setCurrentRoleState] = useState<UserRole | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [smsLogs, setSmsLogs] = useState<SMSAlert[]>(INITIAL_SMS_LOGS);
+  const [activeSmsBanner, setActiveSmsBanner] = useState<SMSAlert | null>(null);
+  const [currentQueueDay, setCurrentQueueDay] = useState<string>('2026-10-06');
+  const [kioskSession, setKioskSession] = useState<KioskSession>({
+    id: 'kiosk-session-01',
+    step: 1,
+    language: 'en',
+    createdAt: new Date().toISOString(),
+    lastActivityAt: Date.now(),
+  });
+
+  const updateKioskSession = useCallback((partial: Partial<KioskSession>) => {
+    setKioskSession((prev) => ({
+      ...prev,
+      ...partial,
+      lastActivityAt: Date.now(),
+    }));
+  }, []);
+
+  const resetKioskSession = useCallback(() => {
+    setKioskSession({
+      id: `ks-${Date.now()}`,
+      step: 1,
+      language: 'en',
+      createdAt: new Date().toISOString(),
+      lastActivityAt: Date.now(),
+    });
+  }, []);
+
   const [soundEnabled, setSoundEnabledState] = useState<boolean>(true);
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -143,6 +229,19 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       } else {
         document.documentElement.classList.remove('dark');
       }
+
+      const savedNotifs = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+      const savedSms = localStorage.getItem(STORAGE_KEY_SMS_LOGS);
+      if (savedNotifs) {
+        try { setNotifications(JSON.parse(savedNotifs)); } catch {}
+      } else {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(INITIAL_NOTIFICATIONS));
+      }
+      if (savedSms) {
+        try { setSmsLogs(JSON.parse(savedSms)); } catch {}
+      } else {
+        localStorage.setItem(STORAGE_KEY_SMS_LOGS, JSON.stringify(INITIAL_SMS_LOGS));
+      }
     } catch (e) {
       console.warn('LocalStorage error:', e);
     } finally {
@@ -185,12 +284,145 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const setCurrentRole = useCallback((role: UserRole) => {
+  const setCurrentRole = useCallback((role: UserRole | null) => {
     setCurrentRoleState(role);
     try {
-      localStorage.setItem(STORAGE_KEY_ROLE, role);
+      if (role) {
+        localStorage.setItem(STORAGE_KEY_ROLE, role);
+        if (role === 'patient') {
+          const existingToken = localStorage.getItem(STORAGE_KEY_USER_TOKEN) || 'A-042';
+          localStorage.setItem(STORAGE_KEY_USER_TOKEN, existingToken);
+          setCurrentUserTokenState(existingToken);
+        } else {
+          // For staff, doctor, admin: do not attach a patient queue token
+          setCurrentUserTokenState(null);
+          localStorage.removeItem(STORAGE_KEY_USER_TOKEN);
+        }
+      } else {
+        localStorage.removeItem(STORAGE_KEY_ROLE);
+        localStorage.removeItem(STORAGE_KEY_USER_TOKEN);
+        setCurrentUserTokenState(null);
+      }
     } catch {}
   }, []);
+
+  const logout = useCallback(() => {
+    setCurrentRoleState(null);
+    setCurrentUserTokenState(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY_ROLE);
+      localStorage.removeItem(STORAGE_KEY_USER_TOKEN);
+    } catch {}
+    addToast({
+      title: 'Signed Out',
+      description: 'You have been securely signed out of your portal session.',
+      type: 'info',
+    });
+  }, [addToast]);
+
+  const currentSession = useMemo(() => {
+    return currentRole ? ROLE_PROFILES[currentRole] : null;
+  }, [currentRole]);
+
+  const dismissSmsBanner = useCallback(() => {
+    setActiveSmsBanner(null);
+  }, []);
+
+  const addNotification = useCallback((data: {
+    target: NotificationTarget;
+    title: string;
+    description: string;
+    type?: 'info' | 'success' | 'warning' | 'urgent';
+    sms?: {
+      phone: string;
+      body: string;
+    };
+  }) => {
+    const newNotif: AppNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      target: data.target,
+      title: data.title,
+      description: data.description,
+      type: data.type || 'info',
+      timestamp: 'Just now',
+      read: false,
+      smsDetails: data.sms,
+    };
+
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev.slice(0, 24)];
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (data.sms) {
+      const newSms: SMSAlert = {
+        id: `sms-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        recipientPhone: data.sms.phone,
+        recipientName: 'Aniket Parekar',
+        tokenNumber: currentUserToken || undefined,
+        message: data.sms.body,
+        sentAt: 'Just now',
+        status: 'DELIVERED',
+      };
+      setSmsLogs((prev) => {
+        const updatedSms = [newSms, ...prev.slice(0, 19)];
+        try {
+          localStorage.setItem(STORAGE_KEY_SMS_LOGS, JSON.stringify(updatedSms));
+        } catch {}
+        return updatedSms;
+      });
+
+      if (soundEnabled) playSmsChime();
+      setActiveSmsBanner(newSms);
+      setTimeout(() => {
+        setActiveSmsBanner((curr) => (curr?.id === newSms.id ? null : curr));
+      }, 7500);
+    }
+  }, [soundEnabled, currentUserToken]);
+
+  const markNotificationAsRead = useCallback((id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const markAllNotificationsAsRead = useCallback((role?: NotificationTarget) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => {
+        if (!role || n.target === role || n.target === 'all') {
+          return { ...n, read: true };
+        }
+        return n;
+      });
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  const sendTestSms = useCallback((customMsg?: string) => {
+    const msg = customMsg || `MediQueue Alert: Token ${currentUserToken} wait time updated to 8 mins. Please remain nearby Room 102.`;
+    addNotification({
+      target: 'patient',
+      title: 'SMS Update Received',
+      description: msg,
+      type: 'info',
+      sms: {
+        phone: '+91 91234 56789',
+        body: msg,
+      },
+    });
+  }, [currentUserToken, addNotification]);
+
+
 
   const setSoundEnabled = useCallback((enabled: boolean) => {
     setSoundEnabledState(enabled);
@@ -324,6 +556,34 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
           description: `${calledPatientName} is now in consultation with Dr. Priya Sharma.`,
           type: 'success',
         });
+
+        // 1. Patient Notification & High-Priority SMS Alert
+        addNotification({
+          target: 'patient',
+          title: `Token ${calledTokenNumber} Called!`,
+          description: `Dr. Priya Sharma is ready in Room 102. Please proceed immediately to Door 102.`,
+          type: 'urgent',
+          sms: {
+            phone: '+91 91234 56789',
+            body: `URGENT [MediQueue Alert]: Token ${calledTokenNumber} is now CALLED for consultation with Dr. Priya Sharma in Room 102. Please proceed immediately to Door 102.`,
+          },
+        });
+
+        // 2. Doctor Notification
+        addNotification({
+          target: 'doctor',
+          title: `Patient Admitted: ${calledTokenNumber}`,
+          description: `${calledPatientName} called into Room 102.`,
+          type: 'success',
+        });
+
+        // 3. Staff Notification
+        addNotification({
+          target: 'staff',
+          title: `Triage Sequence Advanced`,
+          description: `Token ${calledTokenNumber} dispatched to Room 102.`,
+          type: 'info',
+        });
       } else {
         addToast({
           title: 'Queue Advanced',
@@ -334,7 +594,7 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
 
       return finalized;
     });
-  }, [soundEnabled, recalculateWaitTimes, broadcastChange, addToast]);
+  }, [soundEnabled, recalculateWaitTimes, broadcastChange, addToast, addNotification]);
 
   const startConsultation = useCallback((tokenId: string) => {
     if (soundEnabled) playClickSound();
@@ -406,9 +666,27 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         type: 'success',
       });
 
+      addNotification({
+        target: 'patient',
+        title: 'Consultation Completed',
+        description: `Visit complete with Dr. Priya Sharma. Digital summary archived to Medical History.`,
+        type: 'success',
+        sms: {
+          phone: itemToComplete.patient.phone || '+91 91234 56789',
+          body: `MediQueue: Consultation finalized for Token ${itemToComplete.tokenNumber}. Your digital prescription is ready for download in your patient portal.`,
+        },
+      });
+
+      addNotification({
+        target: 'doctor',
+        title: `Consultation Concluded: ${itemToComplete.tokenNumber}`,
+        description: `${itemToComplete.patient.name} discharged successfully.`,
+        type: 'info',
+      });
+
       return finalized;
     });
-  }, [soundEnabled, completedQueue, recalculateWaitTimes, persistState, addToast]);
+  }, [soundEnabled, completedQueue, recalculateWaitTimes, persistState, addToast, addNotification]);
 
   const skipPatient = useCallback((tokenId: string) => {
     if (soundEnabled) playClickSound();
@@ -429,13 +707,21 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     });
   }, [soundEnabled, completedQueue, recalculateWaitTimes, persistState, addToast]);
 
-  // Join Queue flow
+  // Join Queue flow (Supports: RECEPTION | MOBILE | KIOSK)
   const joinQueue = useCallback((data: {
     patientName: string;
+    age?: number;
+    gender?: 'Male' | 'Female' | 'Other';
     departmentId: string;
     doctorId: string;
-    reason: string;
+    reason?: string;
     phone?: string;
+    source?: TokenSource;
+    tokenType?: TokenType;
+    consultationFee?: number;
+    transactionId?: string;
+    paymentMethod?: 'UPI' | 'CARD' | 'CASH';
+    paymentStatus?: 'SUCCESS' | 'PENDING' | 'WAIVED';
   }): QueueItem => {
     if (soundEnabled) playSuccessChime();
 
@@ -456,6 +742,8 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     ).length;
 
     const estimatedWait = Math.max(5, (waitingAhead + 1) * selectedDoc.averageConsultationTimeMin);
+    const source: TokenSource = data.source || 'MOBILE';
+    const tokenType: TokenType = data.tokenType || (data.phone ? 'DIGITAL' : 'PHYSICAL');
 
     const newItem: QueueItem = {
       id: `q-${Date.now()}`,
@@ -463,8 +751,8 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       patient: {
         id: `p-${Date.now()}`,
         name: data.patientName || 'Aniket Parekar',
-        age: 21,
-        gender: 'Male',
+        age: data.age || 21,
+        gender: data.gender || 'Male',
         phone: data.phone || '+91 91234 56789',
         uhid: `UHID-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       },
@@ -476,6 +764,13 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       joinedAt: new Date().toISOString(),
       status: waitingAhead === 0 ? 'NEXT' : 'WAITING',
       priority: 'NORMAL',
+      source,
+      tokenType,
+      queueDay: currentQueueDay,
+      consultationFee: data.consultationFee,
+      transactionId: data.transactionId,
+      paymentMethod: data.paymentMethod,
+      paymentStatus: data.paymentStatus || 'SUCCESS',
       reason: data.reason || 'General health consultation',
       estimatedWaitMinutes: estimatedWait,
     };
@@ -489,23 +784,78 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     setCurrentUserToken(tokenNumber);
 
     addToast({
-      title: `Token ${tokenNumber} Issued!`,
-      description: `You're #${waitingAhead + 1} in line for ${selectedDoc.name}.`,
+      title: `Token ${tokenNumber} Issued via ${source}!`,
+      description: `Position #${waitingAhead + 1} for ${selectedDoc.name} (~${estimatedWait} min).`,
       type: 'success',
     });
 
+    if (data.phone) {
+      addNotification({
+        target: 'patient',
+        title: `Token ${tokenNumber} Confirmed (${source})`,
+        description: `You are #${waitingAhead + 1} in line for ${selectedDoc.name} in Room ${selectedDoc.roomNumber}. Est. wait: ~${estimatedWait} min.`,
+        type: 'success',
+        sms: {
+          phone: data.phone,
+          body: `MediQueue: Token ${tokenNumber} confirmed (${source}) for ${selectedDoc.name} in ${selectedDoc.roomNumber}. Position: #${waitingAhead + 1}. Est wait: ~${estimatedWait} min. Track: mediqueue.live/track`,
+        },
+      });
+    }
+
+    addNotification({
+      target: 'staff',
+      title: `New ${source} Check-in`,
+      description: `Token ${tokenNumber} (${tokenType}) created via ${source} for ${selectedDoc.name}.`,
+      type: 'info',
+    });
+
     return newItem;
-  }, [soundEnabled, departments, doctors, queue, recalculateWaitTimes, completedQueue, persistState, setCurrentUserToken, addToast]);
+  }, [soundEnabled, departments, doctors, queue, currentQueueDay, recalculateWaitTimes, completedQueue, persistState, setCurrentUserToken, addToast, addNotification]);
+
+  // Daily Queue Reset (Separates Active Daily Queue from Historical Records)
+  const resetDailyQueue = useCallback((newDay?: string) => {
+    if (soundEnabled) playClickSound();
+    const targetDay = newDay || new Date().toISOString().split('T')[0];
+    setCurrentQueueDay(targetDay);
+
+    // Archive current queue items to completed
+    setCompletedQueue((prev) => [
+      ...prev,
+      ...queue.map((item) => ({ ...item, status: 'COMPLETED' as const })),
+    ]);
+
+    // Reset active daily queue
+    setQueue([]);
+    setCurrentUserTokenState('');
+    resetKioskSession();
+
+    addToast({
+      title: `Daily Queue Rolled: ${targetDay}`,
+      description: 'Active OPD queue reset cleanly. Historical records archived safely.',
+      type: 'info',
+    });
+
+    addNotification({
+      target: 'admin',
+      title: `Daily Queue Rolled: ${targetDay}`,
+      description: `Hospital day successfully rolled to ${targetDay}. Active token sequences refreshed.`,
+      type: 'info',
+    });
+  }, [soundEnabled, queue, resetKioskSession, addToast, addNotification]);
 
   const resetQueue = useCallback(() => {
     if (soundEnabled) playClickSound();
     setQueue(INITIAL_QUEUE);
     setCompletedQueue(COMPLETED_SEED);
     setCurrentUserTokenState('A-042');
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setSmsLogs(INITIAL_SMS_LOGS);
     try {
       localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(INITIAL_QUEUE));
       localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(COMPLETED_SEED));
       localStorage.setItem(STORAGE_KEY_USER_TOKEN, 'A-042');
+      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(INITIAL_NOTIFICATIONS));
+      localStorage.setItem(STORAGE_KEY_SMS_LOGS, JSON.stringify(INITIAL_SMS_LOGS));
       broadcastChange(INITIAL_QUEUE, COMPLETED_SEED);
     } catch {}
     addToast({
@@ -536,6 +886,9 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       joinedAt: new Date().toISOString(),
       status: 'NEXT',
       priority: 'URGENT',
+      source: 'RECEPTION',
+      tokenType: 'PHYSICAL',
+      queueDay: currentQueueDay,
       reason: 'Acute respiratory distress and severe desaturation.',
       vitals: { bp: '150/95', pulse: 110, temp: '100.2 F', spO2: 91 },
       estimatedWaitMinutes: 0,
@@ -556,7 +909,29 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       description: `Token ${emergencyItem.tokenNumber} prioritized at top of queue.`,
       type: 'urgent',
     });
-  }, [soundEnabled, recalculateWaitTimes, persistState, completedQueue, addToast]);
+
+    // Multi-role notifications
+    addNotification({
+      target: 'doctor',
+      title: 'CRITICAL TRIAGE: Emergency Patient',
+      description: `Acute trauma Token ${emergencyItem.tokenNumber} prioritized. Vitals: SpO2 91%, BP 150/95.`,
+      type: 'urgent',
+    });
+
+    addNotification({
+      target: 'staff',
+      title: 'Emergency Arrival Handled',
+      description: `Token ${emergencyItem.tokenNumber} prioritized to front of OPD line.`,
+      type: 'urgent',
+    });
+
+    addNotification({
+      target: 'admin',
+      title: 'Urgent Trauma Inflow',
+      description: `Trauma arrival ${emergencyItem.tokenNumber} logged in General Medicine.`,
+      type: 'warning',
+    });
+  }, [soundEnabled, recalculateWaitTimes, persistState, completedQueue, addToast, addNotification]);
 
   const simulateDelay = useCallback(() => {
     if (soundEnabled) playClickSound();
@@ -573,12 +948,39 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       persistState(updated, completedQueue);
       return updated;
     });
+
     addToast({
       title: 'Queue Delay Recalculated',
       description: 'Simulated +5 min delay across waiting patients.',
       type: 'warning',
     });
-  }, [soundEnabled, persistState, completedQueue, addToast]);
+
+    // Patient SMS advisory & notification
+    addNotification({
+      target: 'patient',
+      title: 'Wait Time Advisory (+5 min)',
+      description: 'Dr. Priya Sharma is currently attending a critical case. Estimated wait is delayed by ~5 min.',
+      type: 'warning',
+      sms: {
+        phone: '+91 91234 56789',
+        body: 'MediQueue Advisory: Dr. Priya Sharma is currently attending an extended consultation. Your estimated wait has increased by ~5m. Updated times live on your dashboard.',
+      },
+    });
+
+    addNotification({
+      target: 'staff',
+      title: 'Queue Delay Calculated',
+      description: '+5 min increment applied to active waiting list.',
+      type: 'warning',
+    });
+
+    addNotification({
+      target: 'admin',
+      title: 'OPD Flow Deviation',
+      description: 'General Medicine wait times exceeded benchmark (+5m variance).',
+      type: 'warning',
+    });
+  }, [soundEnabled, persistState, completedQueue, addToast, addNotification]);
 
   const getMyQueueItem = useCallback(() => {
     return queue.find((q) => q.tokenNumber === currentUserToken);
@@ -618,7 +1020,17 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         departments,
         currentUserToken,
         currentRole,
+        currentSession,
+        logout,
         toasts,
+        notifications,
+        smsLogs,
+        activeSmsBanner,
+        dismissSmsBanner,
+        addNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        sendTestSms,
         stats,
         soundEnabled,
         theme,
@@ -632,6 +1044,11 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         completeConsultation,
         skipPatient,
         joinQueue,
+        currentQueueDay,
+        resetDailyQueue,
+        kioskSession,
+        updateKioskSession,
+        resetKioskSession,
         resetQueue,
         addEmergencyPatient,
         simulateDelay,
