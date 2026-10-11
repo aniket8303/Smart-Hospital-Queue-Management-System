@@ -20,7 +20,13 @@ export function RoleGuard({ allowedRoles, roleName, children }: RoleGuardProps) 
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // If accessing patient portal or direct QR token pass, seamlessly auto-authorize
+    if (allowedRoles.includes('patient') || (typeof window !== 'undefined' && window.location.search.includes('token='))) {
+      if (currentRole !== 'patient') {
+        setCurrentRole('patient');
+      }
+    }
+  }, [allowedRoles, currentRole, setCurrentRole]);
 
   // Avoid hydration mismatch by waiting for client mount
   if (!mounted) {
@@ -34,9 +40,22 @@ export function RoleGuard({ allowedRoles, roleName, children }: RoleGuardProps) 
     );
   }
 
-  // 1. If user has no active session (unauthenticated)
+  // Seamless pass-through: Patient Portal or Direct QR Token Pass requires NO login barrier
+  const isPatientPortal = allowedRoles.includes('patient');
+  const isDirectTokenPass = typeof window !== 'undefined' && (
+    window.location.search.includes('token=') ||
+    window.location.search.includes('action=get-token') ||
+    window.location.search.includes('action=claim')
+  );
+
+  if (isPatientPortal || isDirectTokenPass) {
+    return <>{children}</>;
+  }
+
+  // 1. If user has no active session (unauthenticated for Staff, Doctor, Admin)
   if (!currentRole) {
     const primaryAllowedRole = allowedRoles[0];
+    const roleDisplayName = primaryAllowedRole === 'patient' ? 'Patient Portal' : ROLE_PROFILES[primaryAllowedRole]?.name;
     return (
       <div className="min-h-[75vh] flex items-center justify-center p-4">
         <div className="max-w-md w-full rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-2xl text-center space-y-6">
@@ -64,7 +83,7 @@ export function RoleGuard({ allowedRoles, roleName, children }: RoleGuardProps) 
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
             >
               <UserCheck className="w-4 h-4" />
-              <span>Continue as {ROLE_PROFILES[primaryAllowedRole]?.name} ({primaryAllowedRole.toUpperCase()})</span>
+              <span>Continue as {roleDisplayName} ({primaryAllowedRole.toUpperCase()})</span>
             </button>
 
             <Link
@@ -134,7 +153,7 @@ export function RoleGuard({ allowedRoles, roleName, children }: RoleGuardProps) 
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
             >
               <UserCheck className="w-4 h-4" />
-              <span>Authorize &amp; Continue as {ROLE_PROFILES[allowedRoles[0]]?.name} ({allowedRoles[0].toUpperCase()})</span>
+              <span>Authorize &amp; Continue as {allowedRoles[0] === 'patient' ? 'Patient Portal' : ROLE_PROFILES[allowedRoles[0]]?.name} ({allowedRoles[0].toUpperCase()})</span>
             </button>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-2">

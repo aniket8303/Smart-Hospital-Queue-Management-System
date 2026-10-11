@@ -419,8 +419,23 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
   }, [addToast]);
 
   const currentSession = useMemo(() => {
-    return currentRole ? ROLE_PROFILES[currentRole] : null;
-  }, [currentRole]);
+    if (!currentRole) return null;
+    const baseProfile = ROLE_PROFILES[currentRole];
+    if (currentRole === 'patient') {
+      const activeItem = queue.find((q) => q.tokenNumber === currentUserToken);
+      if (activeItem) {
+        return {
+          ...baseProfile,
+          name: activeItem.patient.name,
+          title: `Token #${activeItem.tokenNumber} • ${activeItem.departmentName}`,
+          department: activeItem.departmentName,
+          roomNumber: activeItem.roomNumber,
+          badge: activeItem.patient.uhid || activeItem.tokenNumber,
+        };
+      }
+    }
+    return baseProfile;
+  }, [currentRole, queue, currentUserToken]);
 
   const dismissSmsBanner = useCallback(() => {
     setActiveSmsBanner(null);
@@ -1195,8 +1210,25 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
 
   const importOrSyncToken = useCallback((item: QueueItem) => {
     setQueue((prev) => {
-      if (prev.some((q) => q.tokenNumber === item.tokenNumber || q.id === item.id)) return prev;
-      const updated = recalculateWaitTimes(deduplicateQueue([...prev, item]));
+      const existingIdx = prev.findIndex((q) => q.tokenNumber === item.tokenNumber || q.id === item.id);
+      let updated: QueueItem[];
+      if (existingIdx !== -1) {
+        // If existing item has generic name and newly scanned item has actual patient name, update it
+        updated = prev.map((q, idx) => {
+          if (idx === existingIdx && item.patient?.name && item.patient.name !== 'Patient' && item.patient.name !== 'Walk-in Patient') {
+            return {
+              ...q,
+              patient: {
+                ...q.patient,
+                name: item.patient.name,
+              },
+            };
+          }
+          return q;
+        });
+      } else {
+        updated = recalculateWaitTimes(deduplicateQueue([...prev, item]));
+      }
       try {
         localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(updated));
         broadcastChange(updated, completedQueue);
@@ -1211,8 +1243,10 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
     setCurrentUserTokenState(item.tokenNumber);
+    setCurrentRoleState('patient');
     try {
       localStorage.setItem(STORAGE_KEY_USER_TOKEN, item.tokenNumber);
+      localStorage.setItem(STORAGE_KEY_ROLE, 'patient');
     } catch {}
   }, [completedQueue, recalculateWaitTimes, broadcastChange]);
 

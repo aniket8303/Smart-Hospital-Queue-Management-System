@@ -32,7 +32,7 @@ export default function AppointmentPage() {
     }
 
     joinQueue({
-      patientName: 'Aniket Parekar',
+      patientName: 'Patient',
       departmentId: 'dept-gen-med',
       doctorId: 'doc-priya-sharma',
       reason: 'Scheduled appointment consultation with Dr. Priya Sharma',

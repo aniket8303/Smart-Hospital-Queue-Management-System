@@ -149,9 +149,9 @@ export interface UserSession {
 export const ROLE_PROFILES: Record<UserRole, UserSession> = {
   patient: {
     role: 'patient',
-    name: 'Aniket Parekar',
-    title: 'Outpatient Patient',
-    badge: 'UHID-2026-8303',
+    name: 'Patient',
+    title: 'Outpatient Care',
+    badge: 'UHID-2026',
   },
   staff: {
     role: 'staff',

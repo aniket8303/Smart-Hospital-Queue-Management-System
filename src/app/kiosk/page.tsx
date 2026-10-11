@@ -691,7 +691,7 @@ export default function KioskPage() {
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
                   className="w-full min-h-[58px] px-4 rounded-2xl bg-slate-950 border border-slate-800 text-white font-bold text-base focus:outline-none focus:border-cyan-500 transition-colors"
-                  placeholder="e.g. Aniket Parekar"
+                  placeholder="e.g. Rajesh Kadam or Rahul Sharma"
                 />
               </div>
 

@@ -44,46 +44,41 @@ function PatientDashboardContent() {
 
     if (tokenParam) {
       setCurrentRole('patient');
-      const existingInQueue = queue.find((q) => q.tokenNumber === tokenParam);
-      if (!existingInQueue) {
-        // Construct token pass from QR metadata so phone displays it immediately
-        const nameParam = searchParams.get('name') || 'Patient';
-        const docParam = searchParams.get('doc') || 'Dr. Priya Sharma';
-        const deptParam = searchParams.get('dept') || 'General Medicine';
-        const roomParam = searchParams.get('room') || 'Room 102';
-        const posParam = Number(searchParams.get('pos')) || 1;
-        const waitParam = Number(searchParams.get('wait')) || 5;
+      const nameParam = searchParams.get('name') || 'Patient';
+      const docParam = searchParams.get('doc') || 'Dr. Priya Sharma';
+      const deptParam = searchParams.get('dept') || 'General Medicine';
+      const roomParam = searchParams.get('room') || 'Room 102';
+      const posParam = Number(searchParams.get('pos')) || 1;
+      const waitParam = Number(searchParams.get('wait')) || 5;
 
-        const syncedItem: any = {
-          id: `q-sync-${tokenParam}-${Date.now()}`,
-          tokenNumber: tokenParam,
-          patient: {
-            id: `p-sync-${Date.now()}`,
-            name: nameParam,
-            age: 28,
-            gender: 'Male',
-            phone: '',
-            uhid: `UHID-2026-${tokenParam.replace(/\D/g, '') || '001'}`,
-          },
-          doctorId: 'doc-priya-sharma',
-          doctorName: docParam,
-          departmentId: 'dept-gen-med',
-          departmentName: deptParam,
-          roomNumber: roomParam,
-          joinedAt: new Date().toISOString(),
-          status: posParam === 1 ? 'NEXT' : 'WAITING',
-          priority: 'NORMAL',
-          source: 'KIOSK',
-          tokenType: 'DIGITAL',
-          queueDay: new Date().toISOString().split('T')[0],
-          consultationFee: 300,
-          estimatedWaitMinutes: waitParam,
-        };
+      const syncedItem: any = {
+        id: `q-sync-${tokenParam}-${Date.now()}`,
+        tokenNumber: tokenParam,
+        patient: {
+          id: `p-sync-${Date.now()}`,
+          name: nameParam,
+          age: 28,
+          gender: 'Male',
+          phone: '',
+          uhid: `UHID-2026-${tokenParam.replace(/\D/g, '') || '001'}`,
+        },
+        doctorId: 'doc-priya-sharma',
+        doctorName: docParam,
+        departmentId: 'dept-gen-med',
+        departmentName: deptParam,
+        roomNumber: roomParam,
+        joinedAt: new Date().toISOString(),
+        status: posParam === 1 ? 'NEXT' : 'WAITING',
+        priority: 'NORMAL',
+        source: 'KIOSK',
+        tokenType: 'DIGITAL',
+        queueDay: new Date().toISOString().split('T')[0],
+        consultationFee: 300,
+        estimatedWaitMinutes: waitParam,
+      };
 
-        importOrSyncToken(syncedItem);
-      } else {
-        setCurrentUserToken(tokenParam);
-      }
+      importOrSyncToken(syncedItem);
+      setCurrentUserToken(tokenParam);
 
       addToast({
         title: `Mobile Token #${tokenParam} Connected!`,

@@ -26,9 +26,20 @@ import {
 
 export default function PatientProfilePage() {
   const router = useRouter();
-  const { logout, addToast } = useQueue();
+  const { logout, addToast, getMyQueueItem } = useQueue();
+  const myItem = getMyQueueItem();
 
-  const [profile, setProfile] = useState<PatientProfile>(INITIAL_PATIENT_PROFILE);
+  const [profile, setProfile] = useState<PatientProfile>(() => {
+    if (myItem) {
+      return {
+        ...INITIAL_PATIENT_PROFILE,
+        name: myItem.patient.name,
+        uhid: myItem.patient.uhid || INITIAL_PATIENT_PROFILE.uhid,
+        phone: myItem.patient.phone || INITIAL_PATIENT_PROFILE.phone,
+      };
+    }
+    return INITIAL_PATIENT_PROFILE;
+  });
   const [phone, setPhone] = useState(profile.phone);
   const [emergencyContact, setEmergencyContact] = useState(profile.emergencyContact);
   const [address, setAddress] = useState(profile.address);
