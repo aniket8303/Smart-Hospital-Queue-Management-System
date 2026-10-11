@@ -48,7 +48,7 @@ export function DoctorConsole() {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 font-medium">
-            General Medicine • Room 102 • St. Luke&apos;s Academic Medical Center
+            General Medicine • Room 102 • Diksha Hospital
           </p>
         </div>
 

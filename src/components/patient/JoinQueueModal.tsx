@@ -29,21 +29,34 @@ interface JoinQueueModalProps {
 }
 
 export function JoinQueueModal({ isOpen, onClose, onJoinedSuccess }: JoinQueueModalProps) {
-  const { departments, doctors, joinQueue } = useQueue();
+  const { departments, doctors, joinQueue, queue } = useQueue();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedDeptId, setSelectedDeptId] = useState<string>(departments[0]?.id || 'dept-gen-med');
   const [selectedDocId, setSelectedDocId] = useState<string>(doctors[0]?.id || 'doc-priya-sharma');
-  const [patientName, setPatientName] = useState<string>('Aniket Parekar');
-  const [phone, setPhone] = useState<string>('+91 91234 56789');
-  const [reason, setReason] = useState<string>('Mild fever and seasonal allergy symptoms');
+  const [patientName, setPatientName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [reason, setReason] = useState<string>('');
   const [createdItem, setCreatedItem] = useState<QueueItem | null>(null);
 
   if (!isOpen) return null;
 
   const selectedDepartment = departments.find((d) => d.id === selectedDeptId) || departments[0];
-  const departmentDoctors = doctors.filter((d) => d.department === selectedDepartment.name);
+  const departmentDoctors = doctors.filter(
+    (d) => d.departmentId === selectedDeptId || d.department === selectedDepartment.name
+  );
   const selectedDoctor = doctors.find((d) => d.id === selectedDocId) || departmentDoctors[0] || doctors[0];
+
+  // Real queue stats for each doctor — derived from context queue (no hooks call inside)
+  const getDoctorQueueStats = (docId: string) => {
+    const waiting = queue.filter(
+      (q) => q.doctorId === docId && (q.status === 'WAITING' || q.status === 'NEXT')
+    );
+    const ahead = waiting.length;
+    const doc = doctors.find((d) => d.id === docId);
+    const estWait = ahead * (doc?.averageConsultationTimeMin || 5);
+    return { ahead, estWait };
+  };
 
   const getDeptIcon = (iconName: string) => {
     switch (iconName) {
@@ -57,11 +70,14 @@ export function JoinQueueModal({ isOpen, onClose, onJoinedSuccess }: JoinQueueMo
 
   const handleConfirm = () => {
     const item = joinQueue({
-      patientName: patientName.trim() || 'Aniket Parekar',
+      patientName: patientName.trim() || 'Walk-in Patient',
       departmentId: selectedDepartment.id,
       doctorId: selectedDoctor.id,
       reason: reason.trim() || 'General Consultation',
       phone: phone.trim(),
+      source: 'MOBILE',
+      tokenType: 'DIGITAL',
+      paymentStatus: 'PENDING',
     });
 
     setCreatedItem(item);
@@ -209,9 +225,9 @@ export function JoinQueueModal({ isOpen, onClose, onJoinedSuccess }: JoinQueueMo
 
                         <div className="text-right">
                           <span className="text-xs font-black text-cyan-700 dark:text-cyan-400 block font-mono">
-                            ~15 min wait
+                            ₹{doc.consultationFee || 300}
                           </span>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">2 ahead</span>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">fee</span>
                         </div>
                       </button>
                     );

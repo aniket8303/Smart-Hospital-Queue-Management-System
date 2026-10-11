@@ -37,7 +37,7 @@ export function ReportUploadModal({
     {
       id: 'lipid',
       title: 'Cardiac & Lipid Diagnostic Profile',
-      lab: "St. Luke's Pathology Laboratories",
+      lab: "Diksha Hospital Pathology Laboratories",
       biomarkersCount: 4,
       desc: 'Includes Total Cholesterol, LDL, HDL, and Triglycerides with cardiovascular risk score.',
     },

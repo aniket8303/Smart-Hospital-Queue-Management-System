@@ -128,7 +128,7 @@ export default function AppointmentPage() {
               <span>Room 102, Wing A</span>
             </div>
             <span className="text-xs text-slate-500 mt-0.5 block">
-              St. Luke&apos;s Academic Center
+              Diksha Hospital
             </span>
           </div>
 

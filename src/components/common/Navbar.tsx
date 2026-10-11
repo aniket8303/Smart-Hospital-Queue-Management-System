@@ -78,7 +78,7 @@ export function Navbar() {
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 </span>
                 <span className="block text-[10px] uppercase font-semibold text-slate-400 -mt-1 tracking-wider">
-                  Smart Hospital Queue
+                  Diksha Hospital
                 </span>
               </div>
             </Link>

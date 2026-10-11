@@ -59,7 +59,7 @@ export function PrintTokenModal({ isOpen, onClose, item }: PrintTokenModalProps)
               MEDIQUEUE
             </h2>
             <p className="text-[10px] tracking-wider uppercase text-slate-500 font-semibold">
-              MediCare City Hospital • St. Luke&apos;s Center
+              Diksha Hospital • OPD Wing A
             </p>
             <div className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400 uppercase pt-0.5">
               {item.departmentName}

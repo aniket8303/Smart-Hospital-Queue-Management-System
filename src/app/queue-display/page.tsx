@@ -79,7 +79,7 @@ export default function QueueDisplayPage() {
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
               </h1>
               <p className="text-xs uppercase font-bold tracking-widest text-slate-400">
-                St. Luke&apos;s Academic Medical Center • OPD Wing A
+                Diksha Hospital • OPD Wing A
               </p>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function QueueDisplayPage() {
                       {nowServing?.tokenNumber || '—'}
                     </span>
                     <div className="text-xl sm:text-2xl font-bold text-slate-300 mt-2">
-                      {nowServing?.patient.name || 'Next Patient Being Dispatched'}
+                      {nowServing?.roomNumber ? `Proceed to ${nowServing.roomNumber}` : 'Please Proceed to Doctor’s Room'}
                     </div>
                   </motion.div>
                 </AnimatePresence>
@@ -212,7 +212,7 @@ export default function QueueDisplayPage() {
                   {nextInLine?.tokenNumber || '—'}
                 </span>
                 <span className="text-sm font-semibold text-slate-300">
-                  {nextInLine?.patient.name || 'Waiting'}
+                  Please be ready
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-2 font-mono">
@@ -236,7 +236,7 @@ export default function QueueDisplayPage() {
                     {standbyItem1?.tokenNumber || 'A-042'}
                   </div>
                   <div className="text-xs text-slate-400 truncate mt-0.5">
-                    {standbyItem1?.patient.name || 'Aniket Parekar'}
+                    On standby
                   </div>
                   <div className="text-[10px] text-cyan-400 font-mono mt-1">
                     ~{standbyItem1?.estimatedWaitMinutes || 15} min
@@ -248,7 +248,7 @@ export default function QueueDisplayPage() {
                     {standbyItem2?.tokenNumber || 'A-043'}
                   </div>
                   <div className="text-xs text-slate-500 truncate mt-0.5">
-                    {standbyItem2?.patient.name || 'Aarav Shah'}
+                    On standby
                   </div>
                   <div className="text-[10px] text-slate-500 font-mono mt-1">
                     ~{standbyItem2?.estimatedWaitMinutes || 20} min

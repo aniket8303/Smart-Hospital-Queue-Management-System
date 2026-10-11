@@ -21,11 +21,13 @@ export interface Doctor {
   id: string;
   name: string;
   department: string;
+  departmentId: string;
   roomNumber: string;
   specialization: string;
   avatarUrl?: string;
   isAvailable: boolean;
   averageConsultationTimeMin: number;
+  consultationFee: number;
 }
 
 export interface Department {

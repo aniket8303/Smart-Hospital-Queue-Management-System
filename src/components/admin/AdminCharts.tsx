@@ -62,7 +62,7 @@ export function AdminCharts() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            St. Luke&apos;s Academic Medical Center • Central Outpatient Directorate
+            Diksha Hospital • Central Outpatient Directorate
           </p>
         </div>
 
