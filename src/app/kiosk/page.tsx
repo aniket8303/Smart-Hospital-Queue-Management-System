@@ -1017,6 +1017,12 @@ export default function KioskPage() {
                       description: `Notification dispatched to ${patientPhone} via Fast2SMS. Ref: ${res.requestId}`,
                       type: 'success',
                     });
+                  } else if (res?.isRechargeRequired) {
+                    addToast({
+                      title: 'Fast2SMS Activation Notice',
+                      description: 'Fast2SMS requires a one-time ₹100 wallet recharge on fast2sms.com to unlock automated API sending. Displaying interactive on-screen alert.',
+                      type: 'warning',
+                    });
                   } else if (res?.simulated) {
                     addToast({
                       title: 'SMS Gateway Notice',

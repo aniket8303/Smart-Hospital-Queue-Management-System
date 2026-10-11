@@ -16,7 +16,7 @@ export function SMSAlertBanner() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -30, scale: 0.95 }}
           transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md pointer-events-auto"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-[94%] max-w-md pointer-events-auto"
         >
           <div className="bg-slate-950/95 text-white rounded-3xl border border-cyan-500/40 p-4 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl relative overflow-hidden">
             {/* Ambient cyan glow */}

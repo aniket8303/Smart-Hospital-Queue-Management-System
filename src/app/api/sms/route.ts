@@ -87,13 +87,24 @@ export async function POST(request: Request) {
         errMsg = `HTTP ${response.status} from Fast2SMS carrier`;
       }
 
+      const isRechargeRequired = errMsg.toLowerCase().includes('100 inr') || errMsg.toLowerCase().includes('transaction of 100');
+
       return NextResponse.json({
         success: false,
         provider: 'FAST2SMS',
         phone: digits,
-        error: errMsg,
+        error: isRechargeRequired
+          ? 'Fast2SMS requires a one-time ₹100 wallet recharge on fast2sms.com to unlock automated API sending.'
+          : errMsg,
+        isRechargeRequired,
+        rawCarrierMessage: errMsg,
+        simulated: isRechargeRequired,
+        smsDetails: {
+          phone: digits,
+          body: sanitizedMessage,
+        },
         details: data
-      }, { status: 400 });
+      }, { status: 200 });
     }
   } catch (error: any) {
     console.error('[SMS API Route] Error dispatching SMS:', error);

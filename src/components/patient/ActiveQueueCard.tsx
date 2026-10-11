@@ -38,7 +38,9 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
     time: string;
     stage: '15min' | '5min' | 'next' | 'called';
   } | null>(null);
-  const [lastUpdatedTime, setLastUpdatedTime] = useState('10:42 AM');
+  const [lastUpdatedTime, setLastUpdatedTime] = useState(() => {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  });
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -54,11 +56,6 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
       setShowCancelModal(false);
     }
   };
-
-  useEffect(() => {
-    const now = new Date();
-    setLastUpdatedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  }, [queue]);
 
   const myItem = getMyQueueItem();
   const position = getMyPosition();

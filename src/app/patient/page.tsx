@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useQueue } from '@/context/QueueContext';
@@ -36,11 +36,18 @@ function PatientDashboardContent() {
 
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const processedRef = useRef<string | null>(null);
 
   // Handle QR scanning redirects e.g. /patient?token=A-001 or /patient?action=get-token
   useEffect(() => {
     const tokenParam = searchParams.get('token');
     const actionParam = searchParams.get('action');
+
+    const paramKey = tokenParam ? `token:${tokenParam}` : actionParam ? `action:${actionParam}` : null;
+    if (!paramKey || processedRef.current === paramKey) {
+      return;
+    }
+    processedRef.current = paramKey;
 
     if (tokenParam) {
       setCurrentRole('patient');
@@ -124,7 +131,7 @@ function PatientDashboardContent() {
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
-  }, [searchParams, currentUserToken, queue, setCurrentRole, setCurrentUserToken, joinQueue, importOrSyncToken, addToast]);
+  }, [searchParams, currentUserToken, setCurrentRole, setCurrentUserToken, joinQueue, importOrSyncToken, addToast]);
 
   const myItem = queue.find((q) => q.tokenNumber === currentUserToken);
   const patientDisplayName = myItem?.patient?.name || 'Patient';

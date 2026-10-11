@@ -125,7 +125,7 @@ interface QueueContextType {
   // Real SMS Gateway
   fast2SmsApiKey: string;
   setFast2SmsApiKey: (key: string) => void;
-  sendRealSms: (phone: string, message: string) => Promise<{ success: boolean; simulated?: boolean; error?: string; requestId?: string; details?: any }>;
+  sendRealSms: (phone: string, message: string) => Promise<{ success: boolean; simulated?: boolean; isRechargeRequired?: boolean; error?: string; requestId?: string; details?: any }>;
 }
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
@@ -516,10 +516,16 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
                 description: `Sent to ${data.sms?.phone} via Fast2SMS. Ref: ${result.requestId}`,
                 type: 'success',
               });
+            } else if (result?.isRechargeRequired) {
+              addToast({
+                title: 'Fast2SMS Activation Notice',
+                description: 'Fast2SMS requires a one-time ₹100 recharge on fast2sms.com to unlock automated API sending. Displaying interactive on-screen SMS alert.',
+                type: 'warning',
+              });
             } else if (result?.simulated) {
               addToast({
                 title: 'SMS Carrier Setup Notice',
-                description: `To receive real SMS on ${data.sms?.phone}, enter your free Fast2SMS key in Admin Settings -> SMS Gateway.`,
+                description: `To receive real SMS on ${data.sms?.phone}, enter your Fast2SMS key in Admin Settings -> SMS Gateway.`,
                 type: 'info',
               });
             } else {
