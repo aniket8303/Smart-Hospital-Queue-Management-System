@@ -15,12 +15,14 @@ import {
   TokenSource,
   TokenType,
   KioskSession,
-  KioskLanguage
+  KioskLanguage,
+  StaffMember
 } from '@/lib/types';
 import { 
   INITIAL_QUEUE, 
   INITIAL_DOCTORS, 
   INITIAL_DEPARTMENTS, 
+  INITIAL_STAFF,
   COMPLETED_SEED, 
   INITIAL_NOTIFICATIONS, 
   INITIAL_SMS_LOGS 
@@ -103,6 +105,26 @@ interface QueueContextType {
   getMyPosition: () => number;
   cancelQueueRegistration: (tokenNumberToCancel?: string) => void;
   refreshQueue: () => void;
+
+  // Admin Management CRUD
+  staffMembers: StaffMember[];
+  addStaffMember: (staff: Omit<StaffMember, 'id'>) => void;
+  updateStaffMember: (id: string, partial: Partial<StaffMember>) => void;
+  deleteStaffMember: (id: string) => void;
+
+  addDoctor: (doc: Omit<Doctor, 'id'>) => void;
+  updateDoctor: (id: string, partial: Partial<Doctor>) => void;
+  deleteDoctor: (id: string) => void;
+  toggleDoctorAvailability: (id: string) => void;
+
+  addDepartment: (dept: Omit<Department, 'id'>) => void;
+  updateDepartment: (id: string, partial: Partial<Department>) => void;
+  deleteDepartment: (id: string) => void;
+
+  // Real SMS Gateway
+  fast2SmsApiKey: string;
+  setFast2SmsApiKey: (key: string) => void;
+  sendRealSms: (phone: string, message: string) => Promise<{ success: boolean; simulated?: boolean; error?: string; requestId?: string; details?: any }>;
 }
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
@@ -115,12 +137,18 @@ const STORAGE_KEY_SOUND = 'mediqueue_sound_enabled_v1';
 const STORAGE_KEY_THEME = 'mediqueue_theme_v1';
 const STORAGE_KEY_NOTIFICATIONS = 'mediqueue_notifications_v1';
 const STORAGE_KEY_SMS_LOGS = 'mediqueue_sms_logs_v1';
+const STORAGE_KEY_DOCTORS = 'mediqueue_doctors_v2';
+const STORAGE_KEY_DEPARTMENTS = 'mediqueue_departments_v2';
+const STORAGE_KEY_STAFF = 'mediqueue_staff_v2';
+const STORAGE_KEY_FAST2SMS_KEY = 'mediqueue_fast2sms_key_v1';
 
 export function QueueProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<QueueItem[]>(INITIAL_QUEUE);
   const [completedQueue, setCompletedQueue] = useState<QueueItem[]>(COMPLETED_SEED);
-  const [doctors] = useState<Doctor[]>(INITIAL_DOCTORS);
-  const [departments] = useState<Department[]>(INITIAL_DEPARTMENTS);
+  const [doctors, setDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+  const [departments, setDepartments] = useState<Department[]>(INITIAL_DEPARTMENTS);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(INITIAL_STAFF);
+  const [fast2SmsApiKey, setFast2SmsApiKeyState] = useState<string>('');
   const [currentUserToken, setCurrentUserTokenState] = useState<string | null>(null);
   const [currentRole, setCurrentRoleState] = useState<UserRole | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
@@ -244,6 +272,32 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       } else {
         localStorage.setItem(STORAGE_KEY_SMS_LOGS, JSON.stringify(INITIAL_SMS_LOGS));
       }
+
+      const savedDocs = localStorage.getItem(STORAGE_KEY_DOCTORS);
+      if (savedDocs) {
+        try { setDoctors(JSON.parse(savedDocs)); } catch {}
+      } else {
+        localStorage.setItem(STORAGE_KEY_DOCTORS, JSON.stringify(INITIAL_DOCTORS));
+      }
+
+      const savedDepts = localStorage.getItem(STORAGE_KEY_DEPARTMENTS);
+      if (savedDepts) {
+        try { setDepartments(JSON.parse(savedDepts)); } catch {}
+      } else {
+        localStorage.setItem(STORAGE_KEY_DEPARTMENTS, JSON.stringify(INITIAL_DEPARTMENTS));
+      }
+
+      const savedStaff = localStorage.getItem(STORAGE_KEY_STAFF);
+      if (savedStaff) {
+        try { setStaffMembers(JSON.parse(savedStaff)); } catch {}
+      } else {
+        localStorage.setItem(STORAGE_KEY_STAFF, JSON.stringify(INITIAL_STAFF));
+      }
+
+      const savedKey = localStorage.getItem(STORAGE_KEY_FAST2SMS_KEY);
+      if (savedKey) {
+        setFast2SmsApiKeyState(savedKey);
+      }
     } catch (e) {
       console.warn('LocalStorage error:', e);
     } finally {
@@ -363,7 +417,7 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       const newSms: SMSAlert = {
         id: `sms-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         recipientPhone: data.sms.phone,
-        recipientName: 'Aniket Parekar',
+        recipientName: 'Patient',
         tokenNumber: currentUserToken || undefined,
         message: data.sms.body,
         sentAt: 'Just now',
@@ -382,8 +436,49 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       setTimeout(() => {
         setActiveSmsBanner((curr) => (curr?.id === newSms.id ? null : curr));
       }, 7500);
+
+      // Trigger real SMS delivery via Next.js API route
+      if (typeof window !== 'undefined') {
+        fetch('/api/sms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(fast2SmsApiKey ? { 'x-fast2sms-key': fast2SmsApiKey } : {}),
+          },
+          body: JSON.stringify({
+            phone: data.sms.phone,
+            message: data.sms.body,
+            apiKey: fast2SmsApiKey,
+          }),
+        })
+          .then(async (res) => {
+            const result = await res.json().catch(() => null);
+            if (result?.success) {
+              addToast({
+                title: 'Real SMS Dispatched',
+                description: `Sent to ${data.sms?.phone} via Fast2SMS. Ref: ${result.requestId}`,
+                type: 'success',
+              });
+            } else if (result?.simulated) {
+              addToast({
+                title: 'SMS Carrier Setup Notice',
+                description: `To receive real SMS on ${data.sms?.phone}, enter your free Fast2SMS key in Admin Settings -> SMS Gateway.`,
+                type: 'info',
+              });
+            } else {
+              addToast({
+                title: 'SMS Delivery Notice',
+                description: result?.error || 'Unable to dispatch to telco carrier',
+                type: 'warning',
+              });
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to dispatch SMS:', err);
+          });
+      }
     }
-  }, [soundEnabled, currentUserToken]);
+  }, [soundEnabled, currentUserToken, fast2SmsApiKey, addToast]);
 
   const markNotificationAsRead = useCallback((id: string) => {
     setNotifications((prev) => {
@@ -1041,6 +1136,125 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     return myIndex === -1 ? 0 : myIndex + 1;
   }, [queue, currentUserToken]);
 
+  const setFast2SmsApiKey = useCallback((key: string) => {
+    setFast2SmsApiKeyState(key);
+    try {
+      localStorage.setItem(STORAGE_KEY_FAST2SMS_KEY, key);
+    } catch {}
+  }, []);
+
+  const addDoctor = useCallback((doc: Omit<Doctor, 'id'>) => {
+    const id = `doc-${Date.now()}`;
+    const newDoc: Doctor = { ...doc, id };
+    setDoctors((prev) => {
+      const next = [...prev, newDoc];
+      try { localStorage.setItem(STORAGE_KEY_DOCTORS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Doctor Added', description: `${doc.name} assigned to ${doc.department} (${doc.roomNumber})`, type: 'success' });
+  }, [addToast]);
+
+  const updateDoctor = useCallback((id: string, partial: Partial<Doctor>) => {
+    setDoctors((prev) => {
+      const next = prev.map((d) => (d.id === id ? { ...d, ...partial } : d));
+      try { localStorage.setItem(STORAGE_KEY_DOCTORS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Doctor Updated', description: 'Doctor configuration updated', type: 'info' });
+  }, [addToast]);
+
+  const deleteDoctor = useCallback((id: string) => {
+    setDoctors((prev) => {
+      const next = prev.filter((d) => d.id !== id);
+      try { localStorage.setItem(STORAGE_KEY_DOCTORS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Doctor Removed', description: 'Doctor removed from OPD roster', type: 'warning' });
+  }, [addToast]);
+
+  const toggleDoctorAvailability = useCallback((id: string) => {
+    setDoctors((prev) => {
+      const next = prev.map((d) => (d.id === id ? { ...d, isAvailable: !d.isAvailable } : d));
+      try { localStorage.setItem(STORAGE_KEY_DOCTORS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const addDepartment = useCallback((dept: Omit<Department, 'id'>) => {
+    const id = `dept-${dept.code.toLowerCase()}-${Date.now().toString().slice(-4)}`;
+    const newDept: Department = { ...dept, id };
+    setDepartments((prev) => {
+      const next = [...prev, newDept];
+      try { localStorage.setItem(STORAGE_KEY_DEPARTMENTS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Department Added', description: `${dept.name} (${dept.code}) initialized`, type: 'success' });
+  }, [addToast]);
+
+  const updateDepartment = useCallback((id: string, partial: Partial<Department>) => {
+    setDepartments((prev) => {
+      const next = prev.map((d) => (d.id === id ? { ...d, ...partial } : d));
+      try { localStorage.setItem(STORAGE_KEY_DEPARTMENTS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Department Updated', description: 'Department details saved', type: 'info' });
+  }, [addToast]);
+
+  const deleteDepartment = useCallback((id: string) => {
+    setDepartments((prev) => {
+      const next = prev.filter((d) => d.id !== id);
+      try { localStorage.setItem(STORAGE_KEY_DEPARTMENTS, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Department Removed', description: 'Department deleted from hospital directory', type: 'warning' });
+  }, [addToast]);
+
+  const addStaffMember = useCallback((staff: Omit<StaffMember, 'id'>) => {
+    const id = `staff-${Date.now()}`;
+    const newStaff: StaffMember = { ...staff, id };
+    setStaffMembers((prev) => {
+      const next = [...prev, newStaff];
+      try { localStorage.setItem(STORAGE_KEY_STAFF, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Staff Registered', description: `${staff.name} assigned to ${staff.counterNumber}`, type: 'success' });
+  }, [addToast]);
+
+  const updateStaffMember = useCallback((id: string, partial: Partial<StaffMember>) => {
+    setStaffMembers((prev) => {
+      const next = prev.map((s) => (s.id === id ? { ...s, ...partial } : s));
+      try { localStorage.setItem(STORAGE_KEY_STAFF, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Staff Updated', description: 'Staff record updated', type: 'info' });
+  }, [addToast]);
+
+  const deleteStaffMember = useCallback((id: string) => {
+    setStaffMembers((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      try { localStorage.setItem(STORAGE_KEY_STAFF, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    addToast({ title: 'Staff Removed', description: 'Staff member removed from desk list', type: 'warning' });
+  }, [addToast]);
+
+  const sendRealSms = useCallback(async (phone: string, message: string) => {
+    try {
+      const res = await fetch('/api/sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(fast2SmsApiKey ? { 'x-fast2sms-key': fast2SmsApiKey } : {}),
+        },
+        body: JSON.stringify({ phone, message, apiKey: fast2SmsApiKey }),
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error' };
+    }
+  }, [fast2SmsApiKey]);
+
   // Compute live overview statistics
   const stats: DemoStats = useMemo(() => {
     const waiting = queue.filter((q) => q.status === 'WAITING').length;
@@ -1065,6 +1279,20 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         completedQueue,
         doctors,
         departments,
+        staffMembers,
+        addDoctor,
+        updateDoctor,
+        deleteDoctor,
+        toggleDoctorAvailability,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
+        addStaffMember,
+        updateStaffMember,
+        deleteStaffMember,
+        fast2SmsApiKey,
+        setFast2SmsApiKey,
+        sendRealSms,
         currentUserToken,
         currentRole,
         currentSession,

@@ -39,6 +39,17 @@ export interface Department {
   activeDoctors: number;
 }
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  employeeId: string;
+  departmentId: string;
+  departmentName: string;
+  counterNumber: string;
+  shift: 'Morning' | 'Evening' | 'Night';
+  isActive: boolean;
+}
+
 export type TokenSource = 'RECEPTION' | 'MOBILE' | 'KIOSK';
 export type TokenType = 'PHYSICAL' | 'DIGITAL';
 

@@ -1,4 +1,37 @@
-import { Doctor, Department, QueueItem, Appointment } from './types';
+import { Doctor, Department, QueueItem, Appointment, StaffMember } from './types';
+
+export const INITIAL_STAFF: StaffMember[] = [
+  {
+    id: 'staff-01',
+    name: 'Priya Verma',
+    employeeId: 'STAFF-OPD-102',
+    departmentId: 'dept-gen-med',
+    departmentName: 'General Medicine',
+    counterNumber: 'Desk 1',
+    shift: 'Morning',
+    isActive: true,
+  },
+  {
+    id: 'staff-02',
+    name: 'Suresh Patil',
+    employeeId: 'STAFF-OPD-103',
+    departmentId: 'dept-cardio',
+    departmentName: 'Cardiology',
+    counterNumber: 'Desk 2',
+    shift: 'Morning',
+    isActive: true,
+  },
+  {
+    id: 'staff-03',
+    name: 'Kavita Deshmukh',
+    employeeId: 'STAFF-OPD-104',
+    departmentId: 'dept-ortho',
+    departmentName: 'Orthopedics',
+    counterNumber: 'Desk 3',
+    shift: 'Evening',
+    isActive: true,
+  },
+];
 
 export const INITIAL_DEPARTMENTS: Department[] = [
   {
