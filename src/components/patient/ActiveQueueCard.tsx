@@ -18,7 +18,9 @@ import {
   Smartphone,
   Share2,
   Volume2,
-  Info
+  Info,
+  RefreshCw,
+  XCircle
 } from 'lucide-react';
 
 interface ActiveQueueCardProps {
@@ -26,8 +28,10 @@ interface ActiveQueueCardProps {
 }
 
 export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
-  const { queue, currentUserToken, getMyQueueItem, getMyPosition, addToast } = useQueue();
+  const { queue, currentUserToken, getMyQueueItem, getMyPosition, addToast, cancelQueueRegistration, refreshQueue } = useQueue();
   const [hasLeftWaitingArea, setHasLeftWaitingArea] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [activeSimulatedNotif, setActiveSimulatedNotif] = useState<{
     title: string;
     body: string;
@@ -35,6 +39,21 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
     stage: '15min' | '5min' | 'next' | 'called';
   } | null>(null);
   const [lastUpdatedTime, setLastUpdatedTime] = useState('10:42 AM');
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    refreshQueue();
+    const now = new Date();
+    setLastUpdatedTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
+
+  const handleConfirmCancel = () => {
+    if (myItem) {
+      cancelQueueRegistration(myItem.tokenNumber);
+      setShowCancelModal(false);
+    }
+  };
 
   useEffect(() => {
     const now = new Date();
@@ -53,18 +72,26 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
             <Sparkles className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white">No Active Queue Token</h3>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white">You&apos;re not in a queue yet.</h3>
             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
-              You are currently not queued for any medical consultation. Join an outpatient queue via Mobile, Reception, or Self-Service Kiosk.
+              Choose a department and doctor to get started with your consultation at Diksha Hospital.
             </p>
           </div>
-          <button
-            onClick={onOpenJoinModal}
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition-all"
-          >
-            <span>Join a Queue Now</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button
+              onClick={onOpenJoinModal}
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/25 active:scale-95 transition-all"
+            >
+              <span>JOIN A QUEUE</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <Link
+              href="/patient/find-doctor"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition-colors"
+            >
+              <span>Find a Doctor</span>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -220,6 +247,10 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
               <div className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">
                 Estimated wait: <strong className="font-mono text-base">~{myItem.estimatedWaitMinutes} min</strong>
               </div>
+              <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium flex items-start gap-1.5 mt-1.5 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl">
+                <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Estimated wait time is approximate and may vary based on clinical needs and emergencies.</span>
+              </p>
             </div>
 
             {/* Department & Doctor Pills */}
@@ -371,17 +402,73 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
             <span>Central hospital queue synchronized. Audio and SMS enabled.</span>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors disabled:opacity-60"
+              title="Refresh queue status"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-500' : ''}`} />
+              <span>Refresh Queue</span>
+            </button>
+
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold transition-colors"
+              title="Cancel queue registration"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Cancel Registration</span>
+            </button>
+
             <Link
               href="/patient/queue"
               className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold shadow-md transition-all active:scale-95"
             >
-              <span>View Full Queue Timeline</span>
+              <span>View Queue Timeline</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </motion.div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                Cancel Queue Registration?
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                Are you sure you want to cancel your token <strong className="text-slate-900 dark:text-white font-mono">{myItem.tokenNumber}</strong> for {myItem.doctorName}? You will lose your current spot in line.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Keep Token
+              </button>
+              <button
+                onClick={handleConfirmCancel}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 transition-all active:scale-95"
+              >
+                Yes, Cancel Token
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

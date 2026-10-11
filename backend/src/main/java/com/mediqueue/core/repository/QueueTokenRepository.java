@@ -40,4 +40,13 @@ public interface QueueTokenRepository extends JpaRepository<QueueToken, Long> {
     );
 
     List<QueueToken> findByQueueDayAndSource(LocalDate queueDay, QueueToken.TokenSource source);
+
+    List<QueueToken> findByPatientIdOrderByCreatedAtDesc(Long patientId);
+
+    Optional<QueueToken> findByTokenNumber(String tokenNumber);
+
+    Optional<QueueToken> findFirstByPatientIdAndStatusInOrderByCreatedAtDesc(
+        Long patientId, 
+        List<QueueToken.QueueStatus> statuses
+    );
 }

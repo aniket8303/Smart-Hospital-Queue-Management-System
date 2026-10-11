@@ -47,6 +47,7 @@ next-env.d.ts
 
 # Java / Spring Boot Backend
 backend/target/
+backend/tools/
 *.class
 *.jar
 *.war

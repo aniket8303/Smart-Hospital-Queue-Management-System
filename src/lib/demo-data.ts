@@ -463,3 +463,96 @@ export const INITIAL_SMS_LOGS: import('./types').SMSAlert[] = [
   },
 ];
 
+export const INITIAL_PATIENT_PROFILE: import('./types').PatientProfile = {
+  id: 'patient-aniket-1',
+  uhid: 'UHID-2026-8303',
+  name: 'Aniket Parekar',
+  email: 'aniket@mediqueue.org',
+  phone: '+91 91234 56789',
+  gender: 'Male',
+  age: 28,
+  bloodGroup: 'B+',
+  emergencyContact: '+91 98765 43210',
+  address: '702 Emerald Heights, Diksha Hospital Road, Pune',
+  role: 'patient',
+  registeredAt: '2026-09-15T09:30:00Z',
+};
+
+export const INITIAL_PAYMENTS: import('./types').PaymentRecord[] = [
+  {
+    id: 'pay-1',
+    transactionId: 'MQ-2026-8303',
+    tokenNumber: 'A-042',
+    patientName: 'Aniket Parekar',
+    doctorName: 'Dr. Priya Sharma',
+    departmentName: 'General Medicine',
+    amount: 300,
+    paymentMethod: 'UPI',
+    status: 'SUCCESS',
+    isDemo: true,
+    paidAt: 'Today, 10:45 AM',
+    receiptUrl: '/receipts/MQ-2026-8303',
+  },
+  {
+    id: 'pay-2',
+    transactionId: 'MQ-2026-7741',
+    tokenNumber: 'CAR-012',
+    patientName: 'Aniket Parekar',
+    doctorName: 'Dr. Rahul Mehta',
+    departmentName: 'Cardiology',
+    amount: 500,
+    paymentMethod: 'CARD',
+    status: 'SUCCESS',
+    isDemo: true,
+    paidAt: 'Oct 04, 2026',
+    receiptUrl: '/receipts/MQ-2026-7741',
+  },
+  {
+    id: 'pay-3',
+    transactionId: 'MQ-2026-5120',
+    tokenNumber: 'ORT-009',
+    patientName: 'Aniket Parekar',
+    doctorName: 'Dr. Neha Kulkarni',
+    departmentName: 'Orthopedics',
+    amount: 450,
+    paymentMethod: 'UPI',
+    status: 'SUCCESS',
+    isDemo: true,
+    paidAt: 'Sep 21, 2026',
+    receiptUrl: '/receipts/MQ-2026-5120',
+  },
+];
+
+export const INITIAL_APPOINTMENTS: import('./types').Appointment[] = [
+  {
+    id: 'appt-1',
+    doctorName: 'Dr. Priya Sharma',
+    department: 'General Medicine',
+    roomNumber: 'Room 102',
+    date: 'Today',
+    time: '11:30 AM',
+    status: 'Confirmed',
+    tokenNumber: 'A-042',
+  },
+  {
+    id: 'appt-2',
+    doctorName: 'Dr. Rahul Mehta',
+    department: 'Cardiology',
+    roomNumber: 'Room 204',
+    date: 'Tomorrow',
+    time: '02:00 PM',
+    status: 'Confirmed',
+  },
+  {
+    id: 'appt-3',
+    doctorName: 'Dr. Neha Kulkarni',
+    department: 'Orthopedics',
+    roomNumber: 'Room 108',
+    date: 'Sep 21, 2026',
+    time: '10:00 AM',
+    status: 'Completed',
+    tokenNumber: 'ORT-009',
+  },
+];
+
+

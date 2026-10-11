@@ -238,5 +238,32 @@ export interface MedicalReport {
   uploadedAt: string;
 }
 
+export interface PaymentRecord {
+  id: string;
+  transactionId: string;
+  tokenNumber?: string;
+  patientName: string;
+  doctorName: string;
+  departmentName: string;
+  amount: number;
+  paymentMethod: 'UPI' | 'CARD' | 'CASH';
+  status: 'SUCCESS' | 'PENDING' | 'FAILED';
+  isDemo: boolean;
+  paidAt: string;
+  receiptUrl?: string;
+}
 
-
+export interface PatientProfile {
+  id: string;
+  uhid: string;
+  name: string;
+  email: string;
+  phone: string;
+  gender: 'Male' | 'Female' | 'Other';
+  age: number;
+  bloodGroup: string;
+  emergencyContact: string;
+  address: string;
+  role: 'patient';
+  registeredAt: string;
+}

@@ -101,6 +101,8 @@ interface QueueContextType {
   addToast: (toast: Omit<ToastMessage, 'id' | 'timestamp'>) => void;
   getMyQueueItem: () => QueueItem | undefined;
   getMyPosition: () => number;
+  cancelQueueRegistration: (tokenNumberToCancel?: string) => void;
+  refreshQueue: () => void;
 }
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
@@ -812,6 +814,51 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     return newItem;
   }, [soundEnabled, departments, doctors, queue, currentQueueDay, recalculateWaitTimes, completedQueue, persistState, setCurrentUserToken, addToast, addNotification]);
 
+  const cancelQueueRegistration = useCallback((tokenNumberToCancel?: string) => {
+    if (soundEnabled) playClickSound();
+    const targetToken = tokenNumberToCancel || currentUserToken;
+    if (!targetToken) return;
+
+    setQueue((prev) => {
+      const itemToCancel = prev.find((q) => q.tokenNumber === targetToken);
+      if (!itemToCancel) return prev;
+      const updated = prev.filter((q) => q.tokenNumber !== targetToken);
+      const recalculated = recalculateWaitTimes(updated);
+      persistState(recalculated, completedQueue);
+      return recalculated;
+    });
+
+    if (currentUserToken === targetToken) {
+      setCurrentUserTokenState('');
+      try {
+        localStorage.removeItem(STORAGE_KEY_USER_TOKEN);
+      } catch {}
+    }
+
+    addToast({
+      title: 'Registration Cancelled',
+      description: `Token ${targetToken} has been removed from the active queue.`,
+      type: 'warning',
+    });
+
+    addNotification({
+      target: 'patient',
+      title: 'Queue Registration Cancelled',
+      description: `Your token ${targetToken} was cancelled at Diksha Hospital.`,
+      type: 'warning',
+    });
+  }, [soundEnabled, currentUserToken, recalculateWaitTimes, persistState, completedQueue, addToast, addNotification]);
+
+  const refreshQueue = useCallback(() => {
+    if (soundEnabled) playClickSound();
+    addToast({
+      title: 'Queue Telemetry Synced',
+      description: 'Latest queue position and wait times refreshed from Diksha Hospital OPD.',
+      type: 'info',
+    });
+  }, [soundEnabled, addToast]);
+
+
   // Daily Queue Reset (Separates Active Daily Queue from Historical Records)
   const resetDailyQueue = useCallback((newDay?: string) => {
     if (soundEnabled) playClickSound();
@@ -1056,6 +1103,8 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         addToast,
         getMyQueueItem,
         getMyPosition,
+        cancelQueueRegistration,
+        refreshQueue,
       }}
     >
       {children}

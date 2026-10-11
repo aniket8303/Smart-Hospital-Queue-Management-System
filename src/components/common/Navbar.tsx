@@ -160,6 +160,16 @@ export function Navbar() {
                   Dashboard
                 </Link>
                 <Link
+                  href="/patient/find-doctor"
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === '/patient/find-doctor'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Find Doctor
+                </Link>
+                <Link
                   href="/patient/queue"
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     pathname === '/patient/queue'
@@ -168,16 +178,6 @@ export function Navbar() {
                   }`}
                 >
                   My Queue
-                </Link>
-                <Link
-                  href="/patient/reports"
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    pathname === '/patient/reports'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  Reports &amp; Trends
                 </Link>
                 <Link
                   href="/patient/appointment"
@@ -190,14 +190,34 @@ export function Navbar() {
                   Appointments
                 </Link>
                 <Link
-                  href="/patient/history"
+                  href="/patient/reports"
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    pathname === '/patient/history'
+                    pathname === '/patient/reports'
                       ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  History
+                  Reports &amp; Trends
+                </Link>
+                <Link
+                  href="/patient/payments"
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === '/patient/payments'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Payments
+                </Link>
+                <Link
+                  href="/patient/facilities"
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    pathname === '/patient/facilities'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Facilities
                 </Link>
               </>
             )}
@@ -436,18 +456,18 @@ export function Navbar() {
                 Patient Dashboard
               </Link>
               <Link
+                href="/patient/find-doctor"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
+              >
+                Find Doctor
+              </Link>
+              <Link
                 href="/patient/queue"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
               >
                 Live Queue Timeline
-              </Link>
-              <Link
-                href="/patient/reports"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
-              >
-                Reports &amp; Health Trends
               </Link>
               <Link
                 href="/patient/appointment"
@@ -457,11 +477,32 @@ export function Navbar() {
                 Appointments
               </Link>
               <Link
-                href="/patient/history"
+                href="/patient/reports"
                 onClick={() => setMobileMenuOpen(false)}
                 className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
               >
-                Consultation History
+                Reports &amp; Health Trends
+              </Link>
+              <Link
+                href="/patient/payments"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
+              >
+                Payments &amp; Receipts
+              </Link>
+              <Link
+                href="/patient/facilities"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
+              >
+                Hospital Facilities &amp; Info
+              </Link>
+              <Link
+                href="/patient/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-3 py-2 rounded-lg text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900"
+              >
+                My Profile &amp; Privacy
               </Link>
             </>
           )}
