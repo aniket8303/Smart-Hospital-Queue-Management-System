@@ -1,10 +1,17 @@
 package com.mediqueue.core.service;
 
 import com.mediqueue.core.dto.TokenRequestDto;
+import com.mediqueue.core.entity.AuditEvent;
 import com.mediqueue.core.entity.DailyQueue;
+import com.mediqueue.core.entity.Department;
+import com.mediqueue.core.entity.Doctor;
 import com.mediqueue.core.entity.QueueToken;
+import com.mediqueue.core.repository.AuditEventRepository;
 import com.mediqueue.core.repository.DailyQueueRepository;
+import com.mediqueue.core.repository.DepartmentRepository;
+import com.mediqueue.core.repository.DoctorRepository;
 import com.mediqueue.core.repository.QueueTokenRepository;
+import com.mediqueue.core.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +30,10 @@ public class QueueServiceImpl implements QueueService {
 
     private final QueueTokenRepository tokenRepository;
     private final DailyQueueRepository dailyQueueRepository;
+    private final DoctorRepository doctorRepository;
+    private final DepartmentRepository departmentRepository;
+    private final NotificationService notificationService;
+    private final AuditEventRepository auditEventRepository;
 
     private static final int DEFAULT_SERVICE_TIME_MINUTES = 5;
 
@@ -30,7 +42,7 @@ public class QueueServiceImpl implements QueueService {
     public synchronized QueueToken createToken(TokenRequestDto request) {
         LocalDate today = LocalDate.now();
 
-        // Ensure daily queue record exists
+        // 1. Ensure daily queue record exists
         DailyQueue dailyQueue = dailyQueueRepository.findByQueueDay(today)
                 .orElseGet(() -> dailyQueueRepository.save(
                         DailyQueue.builder()
@@ -43,19 +55,49 @@ public class QueueServiceImpl implements QueueService {
                                 .build()
                 ));
 
-        // Generate department daily sequential token: e.g. A-001, A-042
-        String codePrefix = request.getDepartmentCode() != null && !request.getDepartmentCode().isEmpty() 
-                ? request.getDepartmentCode() 
-                : "A";
+        // 2. Fetch authoritative doctor & department metadata
+        String docName = request.getDoctorName();
+        String roomNo = request.getRoomNumber();
+        Double fee = request.getConsultationFee();
+        int serviceDuration = DEFAULT_SERVICE_TIME_MINUTES;
 
+        if (request.getDoctorId() != null) {
+            Optional<Doctor> docOpt = doctorRepository.findById(request.getDoctorId());
+            if (docOpt.isPresent()) {
+                Doctor doc = docOpt.get();
+                docName = doc.getName();
+                if (roomNo == null || roomNo.isBlank()) roomNo = doc.getRoomNumber();
+                if (fee == null) fee = doc.getConsultationFee();
+                if (doc.getAverageConsultationTimeMin() != null) {
+                    serviceDuration = doc.getAverageConsultationTimeMin();
+                }
+            }
+        }
+
+        String deptName = request.getDepartmentName();
+        String deptCode = request.getDepartmentCode();
+        if (request.getDepartmentId() != null) {
+            Optional<Department> deptOpt = departmentRepository.findById(request.getDepartmentId());
+            if (deptOpt.isPresent()) {
+                Department dept = deptOpt.get();
+                if (deptName == null || deptName.isBlank()) deptName = dept.getName();
+                if (deptCode == null || deptCode.isBlank()) deptCode = dept.getCode();
+            }
+        }
+
+        // 3. Generate department daily sequential token: e.g. A-001, A-042
+        String codePrefix = deptCode != null && !deptCode.isEmpty() ? deptCode : "A";
         long currentDeptCount = tokenRepository.countTokensByDepartmentForDay(today, request.getDepartmentId());
         long nextSequence = currentDeptCount + 1;
         String generatedTokenNumber = String.format("%s-%03d", codePrefix, nextSequence);
 
-        // Calculate queue position & estimated wait
+        // 4. Calculate queue position & estimated wait
         List<QueueToken> waiting = tokenRepository.findWaitingQueueByDepartment(today, request.getDepartmentId());
         int position = waiting.size() + 1;
-        int estimatedWait = (position - 1) * DEFAULT_SERVICE_TIME_MINUTES;
+        int estimatedWait = (position - 1) * serviceDuration;
+
+        QueueToken.TokenSource source = request.getSource() != null ? request.getSource() : QueueToken.TokenSource.RECEPTION;
+        QueueToken.TokenType tokenType = request.getTokenType() != null ? request.getTokenType() : QueueToken.TokenType.PHYSICAL;
 
         QueueToken token = QueueToken.builder()
                 .tokenNumber(generatedTokenNumber)
@@ -65,18 +107,18 @@ public class QueueServiceImpl implements QueueService {
                 .patientGender(request.getPatientGender())
                 .patientPhone(request.getPatientPhone())
                 .doctorId(request.getDoctorId())
-                .doctorName(request.getDoctorName())
+                .doctorName(docName != null ? docName : "Dr. Priya Sharma")
                 .departmentId(request.getDepartmentId())
-                .departmentName(request.getDepartmentName())
-                .roomNumber(request.getRoomNumber() != null ? request.getRoomNumber() : "Room 102")
+                .departmentName(deptName != null ? deptName : "General Medicine")
+                .roomNumber(roomNo != null ? roomNo : "Room 102")
                 .queueDay(today)
                 .position(position)
-                .status(QueueToken.QueueStatus.WAITING)
+                .status(position == 1 ? QueueToken.QueueStatus.NEXT : QueueToken.QueueStatus.WAITING)
                 .priority(QueueToken.Priority.NORMAL)
-                .source(request.getSource() != null ? request.getSource() : QueueToken.TokenSource.RECEPTION)
-                .tokenType(request.getTokenType() != null ? request.getTokenType() : QueueToken.TokenType.PHYSICAL)
+                .source(source)
+                .tokenType(tokenType)
                 .estimatedWaitMinutes(estimatedWait)
-                .consultationFee(request.getConsultationFee() != null ? request.getConsultationFee() : 300.0)
+                .consultationFee(fee != null ? fee : 300.0)
                 .transactionId(request.getTransactionId())
                 .paymentMethod(request.getPaymentMethod())
                 .paymentStatus("SUCCESS")
@@ -85,12 +127,26 @@ public class QueueServiceImpl implements QueueService {
 
         QueueToken saved = tokenRepository.save(token);
 
-        // Update daily metrics
+        // 5. Update daily metrics
         dailyQueue.setTotalTokensIssued(dailyQueue.getTotalTokensIssued() + 1);
         dailyQueue.setActiveTokensCount(dailyQueue.getActiveTokensCount() + 1);
         dailyQueueRepository.save(dailyQueue);
 
-        log.info("Successfully generated token {} for patient {} via {}", 
+        // 6. Schedule durable SMS and in-app milestone notifications
+        notificationService.scheduleQueueMilestones(saved);
+
+        // 7. Audit Log
+        auditEventRepository.save(AuditEvent.builder()
+                .eventType("TOKEN_CREATED")
+                .actorRole(source.name())
+                .patientId(saved.getPatientId())
+                .tokenNumber(saved.getTokenNumber())
+                .details(String.format("Token %s issued via %s for %s (%s). Position: #%d, Est: ~%dm", 
+                        saved.getTokenNumber(), source, saved.getDoctorName(), saved.getDepartmentName(), position, estimatedWait))
+                .timestamp(LocalDateTime.now())
+                .build());
+
+        log.info("Successfully generated authoritative token {} for patient {} via {}", 
                 saved.getTokenNumber(), saved.getPatientName(), saved.getSource());
 
         return saved;
@@ -140,11 +196,26 @@ public class QueueServiceImpl implements QueueService {
             current.setEstimatedWaitMinutes((i - 1) * DEFAULT_SERVICE_TIME_MINUTES);
             if (i == 1) {
                 current.setStatus(QueueToken.QueueStatus.NEXT);
+                notificationService.onTokenStatusChange(current);
             }
             tokenRepository.save(current);
         }
 
-        return tokenRepository.save(nextPatient);
+        QueueToken saved = tokenRepository.save(nextPatient);
+
+        // Trigger SMS alert for called patient
+        notificationService.onTokenStatusChange(saved);
+
+        auditEventRepository.save(AuditEvent.builder()
+                .eventType("TOKEN_CALLED")
+                .actorRole("DOCTOR")
+                .tokenNumber(saved.getTokenNumber())
+                .patientId(saved.getPatientId())
+                .details(String.format("Token %s called into %s", saved.getTokenNumber(), saved.getRoomNumber()))
+                .timestamp(LocalDateTime.now())
+                .build());
+
+        return saved;
     }
 
     @Override
@@ -162,6 +233,17 @@ public class QueueServiceImpl implements QueueService {
             dailyQueueRepository.save(dailyQueue);
         }
 
+        notificationService.onTokenStatusChange(token);
+
+        auditEventRepository.save(AuditEvent.builder()
+                .eventType("CONSULTATION_COMPLETED")
+                .actorRole("DOCTOR")
+                .tokenNumber(token.getTokenNumber())
+                .patientId(token.getPatientId())
+                .details(String.format("Consultation completed for Token %s", token.getTokenNumber()))
+                .timestamp(LocalDateTime.now())
+                .build());
+
         return tokenRepository.save(token);
     }
 
@@ -171,6 +253,18 @@ public class QueueServiceImpl implements QueueService {
         LocalDate today = LocalDate.now();
         QueueToken token = getQueueToken(tokenNumber, today);
         token.setStatus(QueueToken.QueueStatus.SKIPPED);
+
+        notificationService.onTokenStatusChange(token);
+
+        auditEventRepository.save(AuditEvent.builder()
+                .eventType("TOKEN_SKIPPED")
+                .actorRole("STAFF")
+                .tokenNumber(token.getTokenNumber())
+                .patientId(token.getPatientId())
+                .details(String.format("Token %s skipped", token.getTokenNumber()))
+                .timestamp(LocalDateTime.now())
+                .build());
+
         return tokenRepository.save(token);
     }
 

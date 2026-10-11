@@ -22,6 +22,10 @@ public class UserPrincipal implements UserDetails {
     private String uhid;
     private String phone;
 
+    public Long getPatientId() {
+        return id;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Collections.singletonList(new SimpleGrantedAuthority(role));

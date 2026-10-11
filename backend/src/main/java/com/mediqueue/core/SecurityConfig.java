@@ -46,17 +46,30 @@ public class SecurityConfig {
                 // H2 database console (demo environment)
                 .requestMatchers("/h2-console/**").permitAll()
 
-                // Public Information & Discovery APIs
+                // Public Information, Wall Display & Discovery APIs
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/departments/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/doctors/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/facilities/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/display/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/queue/active").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/queue/estimate").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/payments/demo").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/kiosk/**").permitAll()
 
-                // Staff / Doctor Queue Operating Endpoints
+                // Payment Gateway (Orders, Verification & Signed Webhook)
+                .requestMatchers("/api/payments/status").permitAll()
+                .requestMatchers("/api/payments/webhook").permitAll()
+                .requestMatchers("/api/payments/orders/create").permitAll()
+                .requestMatchers("/api/payments/verify").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/payments/demo").permitAll()
+
+                // Staff / Receptionist Dedicated Endpoints
+                .requestMatchers("/api/staff/**").hasAnyRole("RECEPTIONIST", "STAFF", "ADMIN")
+
+                // Doctor Dedicated Endpoints
+                .requestMatchers("/api/doctor/**").hasAnyRole("DOCTOR", "ADMIN")
+
+                // Staff / Doctor Generic Queue Operating Endpoints
                 .requestMatchers("/api/queue/*/call").hasAnyRole("RECEPTIONIST", "STAFF", "DOCTOR", "ADMIN")
                 .requestMatchers("/api/queue/*/complete").hasAnyRole("RECEPTIONIST", "STAFF", "DOCTOR", "ADMIN")
                 .requestMatchers("/api/queue/*/skip").hasAnyRole("RECEPTIONIST", "STAFF", "DOCTOR", "ADMIN")
@@ -68,8 +81,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/patient/me/**").hasRole("PATIENT")
                 .requestMatchers("/api/patient/tokens/**").hasRole("PATIENT")
                 .requestMatchers("/api/patient/queue/**").hasRole("PATIENT")
-
-                // Fallback: any other patient endpoints require patient role
                 .requestMatchers("/api/patient/**").hasRole("PATIENT")
 
                 // Default

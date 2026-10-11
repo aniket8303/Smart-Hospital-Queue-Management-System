@@ -6,10 +6,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "queue_tokens", indexes = {
-    @Index(name = "idx_queue_day_status", columnList = "queueDay, status"),
-    @Index(name = "idx_token_number", columnList = "tokenNumber")
-})
+@Table(name = "queue_tokens", 
+    indexes = {
+        @Index(name = "idx_queue_day_status", columnList = "queueDay, status"),
+        @Index(name = "idx_token_number", columnList = "tokenNumber")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_day_token", columnNames = {"queueDay", "tokenNumber"})
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
