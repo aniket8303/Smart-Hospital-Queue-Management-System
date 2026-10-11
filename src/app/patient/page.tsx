@@ -31,23 +31,30 @@ function PatientDashboardContent() {
     setCurrentRole, 
     joinQueue, 
     importOrSyncToken,
-    addToast 
+    addToast,
+    refreshQueue 
   } = useQueue();
 
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const processedRef = useRef<string | null>(null);
+  const lastScanProcessedRef = useRef<number>(0);
 
   // Handle QR scanning redirects e.g. /patient?token=A-001 or /patient?action=get-token
+  // Designed for patients repeatedly scanning paper slip QR while outside the hospital
   useEffect(() => {
     const tokenParam = searchParams.get('token');
     const actionParam = searchParams.get('action');
 
-    const paramKey = tokenParam ? `token:${tokenParam}` : actionParam ? `action:${actionParam}` : null;
-    if (!paramKey || processedRef.current === paramKey) {
+    if (!tokenParam && !actionParam) {
       return;
     }
-    processedRef.current = paramKey;
+
+    const now = Date.now();
+    // Allow repeated scans, debounced by 1 second to avoid double-triggers
+    if (now - lastScanProcessedRef.current < 1000) {
+      return;
+    }
+    lastScanProcessedRef.current = now;
 
     if (tokenParam) {
       setCurrentRole('patient');
@@ -59,10 +66,10 @@ function PatientDashboardContent() {
       const waitParam = Number(searchParams.get('wait')) || 5;
 
       const syncedItem: any = {
-        id: `q-sync-${tokenParam}-${Date.now()}`,
+        id: `q-sync-${tokenParam}`,
         tokenNumber: tokenParam,
         patient: {
-          id: `p-sync-${Date.now()}`,
+          id: `p-sync-${tokenParam}`,
           name: nameParam,
           age: 28,
           gender: 'Male',
@@ -86,16 +93,13 @@ function PatientDashboardContent() {
 
       importOrSyncToken(syncedItem);
       setCurrentUserToken(tokenParam);
+      refreshQueue();
 
       addToast({
-        title: `Mobile Token #${tokenParam} Connected!`,
-        description: 'Your digital pass is active on this device.',
+        title: `Slip QR Scanned • Token #${tokenParam}`,
+        description: 'Live OPD consultation time updated from Diksha Hospital.',
         type: 'success',
       });
-      // Clean query parameters from URL without reloading
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', window.location.pathname);
-      }
     } else if (actionParam === 'get-token' || actionParam === 'scan-join') {
       setCurrentRole('patient');
       // If user doesn't already have an active token, create one for them immediately
@@ -126,12 +130,8 @@ function PatientDashboardContent() {
           type: 'info',
         });
       }
-
-      if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', window.location.pathname);
-      }
     }
-  }, [searchParams, currentUserToken, setCurrentRole, setCurrentUserToken, joinQueue, importOrSyncToken, addToast]);
+  }, [searchParams, currentUserToken, setCurrentRole, setCurrentUserToken, joinQueue, importOrSyncToken, addToast, refreshQueue]);
 
   const myItem = queue.find((q) => q.tokenNumber === currentUserToken);
   const patientDisplayName = myItem?.patient?.name || 'Patient';

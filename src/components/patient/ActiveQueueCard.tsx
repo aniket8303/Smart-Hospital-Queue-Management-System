@@ -20,7 +20,8 @@ import {
   Volume2,
   Info,
   RefreshCw,
-  XCircle
+  XCircle,
+  Coffee
 } from 'lucide-react';
 
 interface ActiveQueueCardProps {
@@ -38,9 +39,18 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
     time: string;
     stage: '15min' | '5min' | 'next' | 'called';
   } | null>(null);
+  const [currentClock, setCurrentClock] = useState<Date | null>(null);
   const [lastUpdatedTime, setLastUpdatedTime] = useState(() => {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   });
+
+  useEffect(() => {
+    setCurrentClock(new Date());
+    const timer = setInterval(() => {
+      setCurrentClock(new Date());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -98,6 +108,15 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
   const isConsulting = myItem.status === 'IN_CONSULTATION';
   const isNext = myItem.status === 'NEXT';
   const patientsAhead = isConsulting ? 0 : isNext ? 1 : Math.max(0, position - 1);
+
+  // Dynamic Consultation Clock & Arrival Time calculations
+  const waitMinutes = myItem.estimatedWaitMinutes || 0;
+  const now = currentClock || new Date();
+  const expectedTurnDate = new Date(now.getTime() + waitMinutes * 60000);
+  const expectedTurnTimeStr = expectedTurnDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const reportBufferMinutes = Math.max(0, waitMinutes - 5);
+  const reportByDate = new Date(now.getTime() + reportBufferMinutes * 60000);
+  const reportByTimeStr = reportByDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   // Status badge colors
   const statusBadge = isConsulting
@@ -310,6 +329,124 @@ export function ActiveQueueCard({ onOpenJoinModal }: ActiveQueueCardProps) {
             <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-3">
               Interactive Queue Flow
             </span>
+          </div>
+        </div>
+
+        {/* DOCTOR CONSULTATION TIME & OUTSIDE WAITING LIVE HUB */}
+        <div className="pt-2 pb-6 border-t border-slate-200 dark:border-slate-800">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-500/10 via-slate-900/5 to-blue-500/10 dark:from-cyan-950/40 dark:via-slate-900/50 dark:to-blue-950/30 border-2 border-cyan-500/30 dark:border-cyan-500/30 p-5 sm:p-7 shadow-xl shadow-cyan-500/5">
+            {/* Header with Live Hospital Sync indicator */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-cyan-500/20 dark:border-cyan-500/20">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  Hospital OPD Live Sync Active
+                </span>
+                <span className="text-[11px] text-slate-400">• Real-time Central OPD feed</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
+                <Clock className="w-3.5 h-3.5 text-cyan-500" />
+                <span>OPD Clock: {(currentClock || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+              </div>
+            </div>
+
+            {/* Main Consultation Time Hero Banner */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 py-5 items-center">
+              <div className="md:col-span-7 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+                    <Stethoscope className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs uppercase font-extrabold tracking-wider text-cyan-700 dark:text-cyan-300">
+                    When to Meet Doctor
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-3">
+                  <div className="text-3xl sm:text-4xl lg:text-5xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+                    {isConsulting
+                      ? 'In Consultation Now'
+                      : isNext
+                      ? 'Next Turn (~1-2m)'
+                      : expectedTurnTimeStr}
+                  </div>
+                  {!isConsulting && (
+                    <span className="text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 font-mono">
+                      {isNext ? 'Next up' : `~${waitMinutes} min wait`}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                  {isConsulting ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                      You are currently in consultation with Dr. {myItem.doctorName}.
+                    </span>
+                  ) : isNext ? (
+                    <span className="text-cyan-600 dark:text-cyan-400 font-bold">
+                      You are NEXT in line! Dr. {myItem.doctorName} is wrapping up with the current patient. Stand by at {myItem.roomNumber}.
+                    </span>
+                  ) : (
+                    <span>
+                      Doctor consultation with <strong className="text-slate-900 dark:text-white">{myItem.doctorName}</strong> in{' '}
+                      <strong className="text-slate-900 dark:text-white font-mono">{myItem.roomNumber}</strong> is expected at{' '}
+                      <strong className="text-cyan-700 dark:text-cyan-300 font-mono text-sm">{expectedTurnTimeStr}</strong>.
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Arrival advisory box for patients outside */}
+              <div className="md:col-span-5 p-4 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-cyan-200 dark:border-cyan-800/60 shadow-md space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                  <MapPin className="w-4 h-4 text-cyan-500 shrink-0" />
+                  <span>Outside Waiting Arrival Advisory</span>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center bg-cyan-50 dark:bg-cyan-950/60 p-2 rounded-xl border border-cyan-100 dark:border-cyan-900/50">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">Report to Room:</span>
+                    <strong className="font-mono font-bold text-cyan-700 dark:text-cyan-300">
+                      {myItem.roomNumber}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between items-center bg-amber-50 dark:bg-amber-950/40 p-2 rounded-xl border border-amber-100 dark:border-amber-900/50">
+                    <span className="text-amber-800 dark:text-amber-300 font-semibold">Report by:</span>
+                    <strong className="font-mono font-bold text-amber-800 dark:text-amber-300 text-sm">
+                      {reportByTimeStr}
+                    </strong>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight pt-0.5">
+                    Please reach {myItem.roomNumber} 5 minutes before your turn ({reportByTimeStr}) to account for walking back from outside.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Waiting Outside Guidance Banner */}
+            <div className="mt-2 pt-3 border-t border-cyan-500/20 dark:border-cyan-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shrink-0">
+                  <Coffee className="w-3.5 h-3.5" />
+                </div>
+                <span>
+                  <strong>Waiting outside hospital?</strong> Re-scan your paper slip QR code anytime from your phone to check updated live doctor meeting time.
+                </span>
+              </div>
+
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition-all active:scale-95 shrink-0 shadow-sm disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>Re-check Turn Time</span>
+              </button>
+            </div>
           </div>
         </div>
 

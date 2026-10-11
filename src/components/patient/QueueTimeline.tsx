@@ -134,8 +134,8 @@ export function QueueTimeline() {
                       <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700">
                         Waiting
                       </span>
-                      <span className="text-xs text-slate-700 dark:text-slate-300 font-mono font-bold block mt-1">
-                        ~{item.estimatedWaitMinutes} min
+                      <span className="text-xs text-cyan-700 dark:text-cyan-300 font-mono font-bold block mt-1">
+                        ~{new Date(Date.now() + (item.estimatedWaitMinutes || 0) * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({item.estimatedWaitMinutes}m)
                       </span>
                     </div>
                   )}

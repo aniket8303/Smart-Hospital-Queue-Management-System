@@ -96,7 +96,19 @@ export function PrintTokenModal({ isOpen, onClose, item }: PrintTokenModalProps)
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Estimated Wait:</span>
-              <strong className="text-emerald-600 dark:text-emerald-400 font-bold">~{item.estimatedWaitMinutes} MIN</strong>
+              <strong className="text-emerald-600 dark:text-emerald-400 font-bold">~{item.estimatedWaitMinutes || 5} MIN</strong>
+            </div>
+            <div className="flex justify-between bg-cyan-50 dark:bg-cyan-950/40 p-1.5 rounded-lg border border-cyan-100 dark:border-cyan-900/40">
+              <span className="text-cyan-700 dark:text-cyan-300 font-semibold">Doctor Meeting Time:</span>
+              <strong className="text-cyan-700 dark:text-cyan-300 font-black font-mono">
+                ~{new Date(Date.now() + (item.estimatedWaitMinutes || 5) * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </strong>
+            </div>
+            <div className="flex justify-between bg-amber-50 dark:bg-amber-950/40 p-1.5 rounded-lg border border-amber-100 dark:border-amber-900/40">
+              <span className="text-amber-800 dark:text-amber-300 font-semibold">Report to Door by:</span>
+              <strong className="text-amber-800 dark:text-amber-300 font-black font-mono">
+                {new Date(Date.now() + Math.max(0, (item.estimatedWaitMinutes || 5) - 5) * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Date:</span>
@@ -112,19 +124,26 @@ export function PrintTokenModal({ isOpen, onClose, item }: PrintTokenModalProps)
           <div className="pt-1 flex flex-col items-center justify-center space-y-1.5">
             <div className="w-24 h-24 p-1 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
               <QRCodeCanvas
-                value={getMobileTokenUrl(item.tokenNumber)}
+                value={getMobileTokenUrl(item.tokenNumber, 'claim', {
+                  name: item.patient.name,
+                  doc: item.doctorName,
+                  dept: item.departmentName,
+                  room: item.roomNumber,
+                  pos: item.estimatedWaitMinutes ? Math.ceil(item.estimatedWaitMinutes / 5) : 1,
+                  wait: item.estimatedWaitMinutes || 5,
+                })}
                 size={88}
                 className="w-full h-full"
               />
             </div>
-            <p className="text-[10px] text-slate-500 font-mono tracking-tight uppercase">
-              SCAN TO TRACK LIVE • {item.tokenNumber}
+            <p className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono tracking-tight font-bold uppercase text-center">
+              SCAN TO TRACK LIVE TIME • {item.tokenNumber}
             </p>
           </div>
 
           {/* Footer Warning */}
-          <div className="text-[10px] text-slate-400 italic leading-snug pt-1">
-            &ldquo;Please be available near {item.roomNumber} when your token is announced on the lounge display.&rdquo;
+          <div className="text-[10px] text-slate-500 italic leading-snug pt-1 text-center">
+            &ldquo;Waiting outside hospital? Re-scan this QR code repeatedly anytime with your phone to check updated live doctor meeting time.&rdquo;
           </div>
         </div>
 

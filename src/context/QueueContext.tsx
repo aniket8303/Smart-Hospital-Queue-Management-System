@@ -351,6 +351,40 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Live polling for smartphones outside the hospital (LAN / Wi-Fi)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const pollId = setInterval(() => {
+      fetch('/api/queue')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success && Array.isArray(data.queue) && data.queue.length > 0) {
+            const clean = deduplicateQueue(data.queue);
+            setQueue((prev) => {
+              if (JSON.stringify(clean) !== JSON.stringify(prev)) {
+                try { localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(clean)); } catch {}
+                return clean;
+              }
+              return prev;
+            });
+            if (Array.isArray(data.completedQueue)) {
+              const cleanComp = deduplicateQueue(data.completedQueue);
+              setCompletedQueue((prevComp) => {
+                if (JSON.stringify(cleanComp) !== JSON.stringify(prevComp)) {
+                  try { localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(cleanComp)); } catch {}
+                  return cleanComp;
+                }
+                return prevComp;
+              });
+            }
+          }
+        })
+        .catch(() => {});
+    }, 3500);
+
+    return () => clearInterval(pollId);
+  }, []);
+
   // Save changes to localStorage and server LAN queue (guaranteed deduplication)
   const persistState = useCallback((newQueue: QueueItem[], newCompleted: QueueItem[]) => {
     const cleanQueue = deduplicateQueue(newQueue);
@@ -1019,11 +1053,25 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     });
   }, [soundEnabled, currentUserToken, recalculateWaitTimes, persistState, completedQueue, addToast, addNotification]);
 
-  const refreshQueue = useCallback(() => {
+  const refreshQueue = useCallback(async () => {
     if (soundEnabled) playClickSound();
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/queue');
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.queue)) {
+          const clean = deduplicateQueue(data.queue);
+          setQueue(clean);
+          if (Array.isArray(data.completedQueue)) setCompletedQueue(deduplicateQueue(data.completedQueue));
+          try {
+            localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(clean));
+          } catch {}
+        }
+      } catch {}
+    }
     addToast({
-      title: 'Queue Telemetry Synced',
-      description: 'Latest queue position and wait times refreshed from Diksha Hospital OPD.',
+      title: 'Live Queue Synchronized',
+      description: 'Your estimated consultation time and queue position have been refreshed live.',
       type: 'info',
     });
   }, [soundEnabled, addToast]);

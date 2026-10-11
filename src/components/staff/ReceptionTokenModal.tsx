@@ -358,7 +358,14 @@ export function ReceptionTokenModal({
                 <div className="flex items-center gap-3.5">
                   <div className="w-16 h-16 rounded-xl bg-white p-1 flex items-center justify-center shadow-md border border-slate-200 dark:border-slate-800 shrink-0">
                     <QRCodeCanvas
-                      value={getMobileTokenUrl(createdItem.tokenNumber)}
+                      value={getMobileTokenUrl(createdItem.tokenNumber, 'claim', {
+                        name: createdItem.patient.name,
+                        doc: createdItem.doctorName,
+                        dept: createdItem.departmentName,
+                        room: createdItem.roomNumber,
+                        pos: createdItem.estimatedWaitMinutes ? Math.ceil(createdItem.estimatedWaitMinutes / 5) : 1,
+                        wait: createdItem.estimatedWaitMinutes || 5,
+                      })}
                       size={60}
                       className="w-full h-full"
                     />
