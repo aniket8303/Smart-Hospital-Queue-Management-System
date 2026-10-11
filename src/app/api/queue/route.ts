@@ -26,15 +26,25 @@ export async function GET(request: Request) {
   });
 }
 
+function deduplicate(list: any[]): any[] {
+  const seen = new Set<string>();
+  return list.filter((item) => {
+    if (!item?.tokenNumber) return false;
+    if (seen.has(item.tokenNumber)) return false;
+    seen.add(item.tokenNumber);
+    return true;
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { action, queue, completedQueue, item } = body;
 
     if (action === 'SYNC' && Array.isArray(queue)) {
-      serverQueue = queue;
+      serverQueue = deduplicate(queue);
       if (Array.isArray(completedQueue)) {
-        serverCompleted = completedQueue;
+        serverCompleted = deduplicate(completedQueue);
       }
       return NextResponse.json({ success: true, count: serverQueue.length });
     }

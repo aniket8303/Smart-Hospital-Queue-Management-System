@@ -27,9 +27,18 @@ export function DoctorConsole() {
     notifications 
   } = useQueue();
 
-  const currentConsultation = queue.find((q) => q.status === 'IN_CONSULTATION') || queue.find((q) => q.status === 'NEXT');
-  const upcomingPatients = queue.filter(
-    (q) => q.id !== currentConsultation?.id && (q.status === 'WAITING' || q.status === 'NEXT')
+  const uniqueQueue = React.useMemo(() => {
+    const seen = new Set<string>();
+    return queue.filter((item) => {
+      if (!item?.tokenNumber || seen.has(item.tokenNumber)) return false;
+      seen.add(item.tokenNumber);
+      return true;
+    });
+  }, [queue]);
+
+  const currentConsultation = uniqueQueue.find((q) => q.status === 'IN_CONSULTATION') || uniqueQueue.find((q) => q.status === 'NEXT');
+  const upcomingPatients = uniqueQueue.filter(
+    (q) => q.tokenNumber !== currentConsultation?.tokenNumber && (q.status === 'WAITING' || q.status === 'NEXT')
   );
 
   const [clinicalNotes, setClinicalNotes] = useState('Patient exhibits mild pharyngeal erythema. Clear breath sounds bilaterally.');

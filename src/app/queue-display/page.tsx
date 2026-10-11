@@ -35,13 +35,23 @@ export default function QueueDisplayPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const nowServing = queue.find((q) => q.status === 'IN_CONSULTATION') || queue[0];
-  const waitingList = queue.filter((q) => q.id !== nowServing?.id && q.status !== 'COMPLETED' && q.status !== 'CANCELLED');
-  const nextInLine = waitingList.find((q) => q.status === 'NEXT') || waitingList[0];
-  const upcomingStandby = waitingList.filter((q) => q.id !== nextInLine?.id);
+  const uniqueQueue = React.useMemo(() => {
+    const seen = new Set<string>();
+    return queue.filter((item) => {
+      if (!item?.tokenNumber || seen.has(item.tokenNumber)) return false;
+      seen.add(item.tokenNumber);
+      return true;
+    });
+  }, [queue]);
+
+  const inConsult = uniqueQueue.find((q) => q.status === 'IN_CONSULTATION');
+  const nowServing = inConsult || null;
+  const waitingList = uniqueQueue.filter((q) => q.tokenNumber !== nowServing?.tokenNumber && q.status !== 'COMPLETED' && q.status !== 'CANCELLED');
+  const nextInLine = waitingList.find((q) => q.status === 'NEXT') || waitingList[0] || null;
+  const upcomingStandby = waitingList.filter((q) => q.tokenNumber !== nextInLine?.tokenNumber);
   const standbyItem1 = upcomingStandby[0];
   const standbyItem2 = upcomingStandby[1];
-  const estimatedOverallWait = standbyItem1?.estimatedWaitMinutes || 15;
+  const estimatedOverallWait = standbyItem1?.estimatedWaitMinutes || (nextInLine ? 2 : 0);
 
   const handleFullScreen = () => {
     if (typeof document !== 'undefined') {

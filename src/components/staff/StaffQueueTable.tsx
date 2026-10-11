@@ -30,6 +30,15 @@ export function StaffQueueTable() {
     skipPatient 
   } = useQueue();
 
+  const uniqueQueue = React.useMemo(() => {
+    const seen = new Set<string>();
+    return queue.filter((item) => {
+      if (!item?.tokenNumber || seen.has(item.tokenNumber)) return false;
+      seen.add(item.tokenNumber);
+      return true;
+    });
+  }, [queue]);
+
   const getStatusBadge = (status: QueueItem['status']) => {
     switch (status) {
       case 'IN_CONSULTATION':
@@ -122,14 +131,14 @@ export function StaffQueueTable() {
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             <AnimatePresence initial={false}>
-              {queue.length === 0 ? (
+              {uniqueQueue.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                     No patients currently waiting in this queue.
                   </td>
                 </tr>
               ) : (
-                queue.map((item) => {
+                uniqueQueue.map((item) => {
                   const isConsulting = item.status === 'IN_CONSULTATION';
                   const isNext = item.status === 'NEXT';
 

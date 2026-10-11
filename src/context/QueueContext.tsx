@@ -143,6 +143,16 @@ const STORAGE_KEY_DEPARTMENTS = 'mediqueue_departments_v2';
 const STORAGE_KEY_STAFF = 'mediqueue_staff_v2';
 const STORAGE_KEY_FAST2SMS_KEY = 'mediqueue_fast2sms_key_v1';
 
+export function deduplicateQueue(items: QueueItem[]): QueueItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (!item?.tokenNumber) return false;
+    if (seen.has(item.tokenNumber)) return false;
+    seen.add(item.tokenNumber);
+    return true;
+  });
+}
+
 export function QueueProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<QueueItem[]>(INITIAL_QUEUE);
   const [completedQueue, setCompletedQueue] = useState<QueueItem[]>(COMPLETED_SEED);
@@ -239,7 +249,7 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       const savedSound = localStorage.getItem(STORAGE_KEY_SOUND);
 
       if (savedQueue) {
-        setQueue(JSON.parse(savedQueue));
+        setQueue(deduplicateQueue(JSON.parse(savedQueue)));
       } else {
         localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(INITIAL_QUEUE));
       }
@@ -311,10 +321,11 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         .then((res) => res.json())
         .then((data) => {
           if (data?.success && Array.isArray(data.queue) && data.queue.length > 0) {
-            setQueue(data.queue);
-            if (Array.isArray(data.completedQueue)) setCompletedQueue(data.completedQueue);
+            const clean = deduplicateQueue(data.queue);
+            setQueue(clean);
+            if (Array.isArray(data.completedQueue)) setCompletedQueue(deduplicateQueue(data.completedQueue));
             try {
-              localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(data.queue));
+              localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(clean));
               if (Array.isArray(data.completedQueue)) {
                 localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(data.completedQueue));
               }
@@ -331,8 +342,8 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     const bc = new BroadcastChannel('mediqueue_channel');
     bc.onmessage = (event) => {
       if (event.data?.type === 'SYNC') {
-        if (event.data.queue) setQueue(event.data.queue);
-        if (event.data.completed) setCompletedQueue(event.data.completed);
+        if (event.data.queue) setQueue(deduplicateQueue(event.data.queue));
+        if (event.data.completed) setCompletedQueue(deduplicateQueue(event.data.completed));
       }
     };
     return () => {
@@ -340,20 +351,22 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Save changes to localStorage and server LAN queue
+  // Save changes to localStorage and server LAN queue (guaranteed deduplication)
   const persistState = useCallback((newQueue: QueueItem[], newCompleted: QueueItem[]) => {
-    setQueue(newQueue);
-    setCompletedQueue(newCompleted);
+    const cleanQueue = deduplicateQueue(newQueue);
+    const cleanCompleted = deduplicateQueue(newCompleted);
+    setQueue(cleanQueue);
+    setCompletedQueue(cleanCompleted);
     try {
-      localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(newQueue));
-      localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(newCompleted));
-      broadcastChange(newQueue, newCompleted);
+      localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(cleanQueue));
+      localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(cleanCompleted));
+      broadcastChange(cleanQueue, cleanCompleted);
       // Sync across all LAN / Wi-Fi mobile devices
       if (typeof window !== 'undefined') {
         fetch('/api/queue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'SYNC', queue: newQueue, completedQueue: newCompleted }),
+          body: JSON.stringify({ action: 'SYNC', queue: cleanQueue, completedQueue: cleanCompleted }),
         }).catch(() => {});
       }
     } catch (err) {
@@ -902,8 +915,20 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     };
 
     setQueue((prev) => {
-      const nextQ = recalculateWaitTimes([...prev, newItem]);
-      persistState(nextQ, completedQueue);
+      if (prev.some((q) => q.tokenNumber === tokenNumber)) return prev;
+      const nextQ = recalculateWaitTimes(deduplicateQueue([...prev, newItem]));
+      try {
+        localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(nextQ));
+        localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(completedQueue));
+        broadcastChange(nextQ, completedQueue);
+        if (typeof window !== 'undefined') {
+          fetch('/api/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'SYNC', queue: nextQ, completedQueue }),
+          }).catch(() => {});
+        }
+      } catch {}
       return nextQ;
     });
 
@@ -1170,17 +1195,26 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
 
   const importOrSyncToken = useCallback((item: QueueItem) => {
     setQueue((prev) => {
-      const exists = prev.some((q) => q.tokenNumber === item.tokenNumber || q.id === item.id);
-      if (exists) return prev;
-      const updated = [...prev, item];
-      persistState(updated, completedQueue);
+      if (prev.some((q) => q.tokenNumber === item.tokenNumber || q.id === item.id)) return prev;
+      const updated = recalculateWaitTimes(deduplicateQueue([...prev, item]));
+      try {
+        localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(updated));
+        broadcastChange(updated, completedQueue);
+        if (typeof window !== 'undefined') {
+          fetch('/api/queue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'SYNC', queue: updated, completedQueue }),
+          }).catch(() => {});
+        }
+      } catch {}
       return updated;
     });
     setCurrentUserTokenState(item.tokenNumber);
     try {
       localStorage.setItem(STORAGE_KEY_USER_TOKEN, item.tokenNumber);
     } catch {}
-  }, [completedQueue, persistState]);
+  }, [completedQueue, recalculateWaitTimes, broadcastChange]);
 
   const setFast2SmsApiKey = useCallback((key: string) => {
     setFast2SmsApiKeyState(key);
