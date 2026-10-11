@@ -19,7 +19,9 @@ import {
   getMobileTokenUrl, 
   KNOWN_NETWORK_IPS, 
   setCustomLanIp, 
-  getSavedLanIp 
+  getSavedLanIp,
+  DEFAULT_WIFI_IP,
+  TokenMetadata 
 } from '@/lib/network';
 
 interface MobileQrModalProps {
@@ -29,6 +31,7 @@ interface MobileQrModalProps {
   customAction?: 'get-token' | 'claim';
   title?: string;
   subtitle?: string;
+  meta?: TokenMetadata;
 }
 
 export function MobileQrModal({
@@ -38,8 +41,9 @@ export function MobileQrModal({
   customAction = 'get-token',
   title = 'Scan to Get Mobile Digital Token',
   subtitle = 'Point your smartphone camera at this QR code to join the queue and get your live token pass.',
+  meta,
 }: MobileQrModalProps) {
-  const [selectedIp, setSelectedIp] = useState<string>('10.20.4.229');
+  const [selectedIp, setSelectedIp] = useState<string>(DEFAULT_WIFI_IP);
   const [copied, setCopied] = useState(false);
   const [showIpSettings, setShowIpSettings] = useState(false);
   const [customIpInput, setCustomIpInput] = useState('');
@@ -50,9 +54,9 @@ export function MobileQrModal({
       const saved = getSavedLanIp();
       setSelectedIp(saved);
       setCustomIpInput(saved);
-      setQrUrl(getMobileTokenUrl(tokenNumber, customAction));
+      setQrUrl(getMobileTokenUrl(tokenNumber, customAction, meta));
     }
-  }, [isOpen, tokenNumber, customAction]);
+  }, [isOpen, tokenNumber, customAction, meta]);
 
   if (!isOpen) return null;
 
@@ -60,7 +64,7 @@ export function MobileQrModal({
     setSelectedIp(newIp);
     setCustomLanIp(newIp);
     setTimeout(() => {
-      setQrUrl(getMobileTokenUrl(tokenNumber, customAction));
+      setQrUrl(getMobileTokenUrl(tokenNumber, customAction, meta));
     }, 50);
   };
 

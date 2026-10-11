@@ -240,23 +240,26 @@ export default function KioskPage() {
   const { 
     departments, 
     doctors, 
+    queue,
     joinQueue, 
     currentQueueDay, 
     resetDailyQueue,
     kioskSession,
     updateKioskSession,
-    resetKioskSession
+    resetKioskSession,
+    sendRealSms,
+    addToast
   } = useQueue();
 
   const [language, setLanguage] = useState<KioskLanguage>('en');
   const [step, setStep] = useState<number>(0); // 0 = Idle / Start, 1 = Dept, 2 = Doc, 3 = Patient Info, 4 = Payment, 5 = Token Generated
   const [selectedDeptId, setSelectedDeptId] = useState<string>('dept-gen-med');
   const [selectedDocId, setSelectedDocId] = useState<string>('doc-priya-sharma');
-  const [patientName, setPatientName] = useState<string>('Aniket Parekar');
-  const [patientAge, setPatientAge] = useState<string>('21');
+  const [patientName, setPatientName] = useState<string>('');
+  const [patientAge, setPatientAge] = useState<string>('');
   const [patientGender, setPatientGender] = useState<'Male' | 'Female' | 'Other'>('Male');
-  const [patientPhone, setPatientPhone] = useState<string>('+91 91234 56789');
-  const [isExisting, setIsExisting] = useState<boolean>(true);
+  const [patientPhone, setPatientPhone] = useState<string>('');
+  const [isExisting, setIsExisting] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'CASH'>('UPI');
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
   const [paymentDone, setPaymentDone] = useState<boolean>(false);
@@ -345,8 +348,8 @@ export default function KioskPage() {
 
       setTimeout(() => {
         const item = joinQueue({
-          patientName: patientName.trim() || 'Aniket Parekar',
-          age: parseInt(patientAge, 10) || 21,
+          patientName: patientName.trim() || 'Walk-in Patient',
+          age: parseInt(patientAge, 10) || 30,
           gender: patientGender,
           departmentId: selectedDeptId,
           doctorId: selectedDocId,
@@ -919,7 +922,7 @@ export default function KioskPage() {
 
               {/* Large Token Animation */}
               <div className="text-6xl sm:text-7xl font-black font-mono tracking-tight text-cyan-400 py-2">
-                {generatedItem?.tokenNumber || 'A-042'}
+                {generatedItem?.tokenNumber || 'A-001'}
               </div>
 
               <div className="h-px bg-slate-800 my-4" />
@@ -928,12 +931,16 @@ export default function KioskPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
                 <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Position</span>
-                  <strong className="text-xl font-mono font-bold text-white">03</strong>
+                  <strong className="text-xl font-mono font-bold text-white">
+                    {String(generatedItem ? queue.findIndex((q) => q.tokenNumber === generatedItem.tokenNumber) + 1 || 1 : 1).padStart(2, '0')}
+                  </strong>
                 </div>
 
                 <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Est. Wait</span>
-                  <strong className="text-xl font-mono font-bold text-emerald-400">~15 MIN</strong>
+                  <strong className="text-xl font-mono font-bold text-emerald-400">
+                    ~{generatedItem?.estimatedWaitMinutes || 5} MIN
+                  </strong>
                 </div>
 
                 <div className="bg-slate-950/70 p-3 rounded-2xl border border-slate-800 col-span-2 sm:col-span-2">
@@ -943,19 +950,30 @@ export default function KioskPage() {
                 </div>
               </div>
 
-              {/* Dynamic QR code section */}
+              {/* Dynamic QR code section with full token metadata */}
               <div className="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between text-left">
                 <div className="flex items-center gap-3.5">
                   <div className="w-16 h-16 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-lg border border-slate-800">
                     <QRCodeCanvas
-                      value={getMobileTokenUrl(generatedItem?.tokenNumber || 'A-042')}
+                      value={getMobileTokenUrl(
+                        generatedItem?.tokenNumber || 'A-001',
+                        'claim',
+                        generatedItem ? {
+                          name: generatedItem.patient.name,
+                          doc: generatedItem.doctorName,
+                          dept: generatedItem.departmentName,
+                          room: generatedItem.roomNumber,
+                          pos: queue.findIndex((q) => q.tokenNumber === generatedItem.tokenNumber) + 1 || 1,
+                          wait: generatedItem.estimatedWaitMinutes || 5,
+                        } : undefined
+                      )}
                       size={60}
                       className="w-full h-full"
                     />
                   </div>
                   <div>
                     <span className="text-xs font-bold text-white block">📱 Scan to Take on Phone</span>
-                    <span className="text-[10px] text-cyan-400 font-mono">TOKEN: {generatedItem?.tokenNumber || 'A-042'}</span>
+                    <span className="text-[10px] text-cyan-400 font-mono">TOKEN: {generatedItem?.tokenNumber || 'A-001'}</span>
                     <span className="text-[10px] text-slate-400 block">Camera auto-opens digital pass</span>
                   </div>
                 </div>
@@ -977,8 +995,41 @@ export default function KioskPage() {
               </button>
 
               <button
-                onClick={() => {
-                  alert(`Demo SMS notification dispatched to ${patientPhone}`);
+                onClick={async () => {
+                  if (!patientPhone) {
+                    addToast({
+                      title: 'No Phone Provided',
+                      description: 'Enter a mobile number to receive live SMS notifications.',
+                      type: 'warning',
+                    });
+                    return;
+                  }
+                  const smsBody = `MediQueue: Token ${generatedItem?.tokenNumber || ''} confirmed at Diksha Hospital for ${activeDoc.name} in ${activeDoc.roomNumber}. Est wait: ~${generatedItem?.estimatedWaitMinutes || 5} min.`;
+                  addToast({
+                    title: 'Sending SMS...',
+                    description: `Contacting carrier for ${patientPhone}...`,
+                    type: 'info',
+                  });
+                  const res = await sendRealSms(patientPhone, smsBody);
+                  if (res?.success) {
+                    addToast({
+                      title: 'Real SMS Dispatched',
+                      description: `Notification dispatched to ${patientPhone} via Fast2SMS. Ref: ${res.requestId}`,
+                      type: 'success',
+                    });
+                  } else if (res?.simulated) {
+                    addToast({
+                      title: 'SMS Gateway Notice',
+                      description: `To receive real SMS on ${patientPhone}, configure your free Fast2SMS API key in Admin -> SMS Gateway.`,
+                      type: 'info',
+                    });
+                  } else {
+                    addToast({
+                      title: 'SMS Notice',
+                      description: res?.error || 'SMS transmission queued.',
+                      type: 'warning',
+                    });
+                  }
                 }}
                 className="min-h-[58px] rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-400 font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
               >

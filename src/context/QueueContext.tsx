@@ -105,6 +105,7 @@ interface QueueContextType {
   getMyPosition: () => number;
   cancelQueueRegistration: (tokenNumberToCancel?: string) => void;
   refreshQueue: () => void;
+  importOrSyncToken: (item: QueueItem) => void;
 
   // Admin Management CRUD
   staffMembers: StaffMember[];
@@ -129,11 +130,11 @@ interface QueueContextType {
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
 
-const STORAGE_KEY_QUEUE = 'mediqueue_active_queue_v1';
-const STORAGE_KEY_COMPLETED = 'mediqueue_completed_queue_v1';
-const STORAGE_KEY_USER_TOKEN = 'mediqueue_current_token_v1';
-const STORAGE_KEY_ROLE = 'mediqueue_current_role_v1';
-const STORAGE_KEY_SOUND = 'mediqueue_sound_enabled_v1';
+const STORAGE_KEY_QUEUE = 'mediqueue_active_queue_v4';
+const STORAGE_KEY_COMPLETED = 'mediqueue_completed_queue_v4';
+const STORAGE_KEY_USER_TOKEN = 'mediqueue_current_token_v4';
+const STORAGE_KEY_ROLE = 'mediqueue_current_role_v4';
+const STORAGE_KEY_SOUND = 'mediqueue_sound_enabled_v4';
 const STORAGE_KEY_THEME = 'mediqueue_theme_v1';
 const STORAGE_KEY_NOTIFICATIONS = 'mediqueue_notifications_v1';
 const STORAGE_KEY_SMS_LOGS = 'mediqueue_sms_logs_v1';
@@ -303,6 +304,25 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsInitialized(true);
     }
+
+    // Hydrate from server queue to ensure cross-device consistency (LAN / Wi-Fi phones)
+    if (typeof window !== 'undefined') {
+      fetch('/api/queue')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success && Array.isArray(data.queue) && data.queue.length > 0) {
+            setQueue(data.queue);
+            if (Array.isArray(data.completedQueue)) setCompletedQueue(data.completedQueue);
+            try {
+              localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(data.queue));
+              if (Array.isArray(data.completedQueue)) {
+                localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(data.completedQueue));
+              }
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   // Listen to cross-tab broadcast updates
@@ -320,7 +340,7 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Save changes to localStorage
+  // Save changes to localStorage and server LAN queue
   const persistState = useCallback((newQueue: QueueItem[], newCompleted: QueueItem[]) => {
     setQueue(newQueue);
     setCompletedQueue(newCompleted);
@@ -328,6 +348,14 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(newQueue));
       localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(newCompleted));
       broadcastChange(newQueue, newCompleted);
+      // Sync across all LAN / Wi-Fi mobile devices
+      if (typeof window !== 'undefined') {
+        fetch('/api/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'SYNC', queue: newQueue, completedQueue: newCompleted }),
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Error saving state:', err);
     }
@@ -346,9 +374,10 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
       if (role) {
         localStorage.setItem(STORAGE_KEY_ROLE, role);
         if (role === 'patient') {
-          const existingToken = localStorage.getItem(STORAGE_KEY_USER_TOKEN) || 'A-042';
-          localStorage.setItem(STORAGE_KEY_USER_TOKEN, existingToken);
-          setCurrentUserTokenState(existingToken);
+          const existingToken = localStorage.getItem(STORAGE_KEY_USER_TOKEN);
+          if (existingToken) {
+            setCurrentUserTokenState(existingToken);
+          }
         } else {
           // For staff, doctor, admin: do not attach a patient queue token
           setCurrentUserTokenState(null);
@@ -825,12 +854,12 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     const selectedDept = departments.find((d) => d.id === data.departmentId) || departments[0];
     const selectedDoc = doctors.find((doc) => doc.id === data.doctorId) || doctors[0];
 
-    // Determine token number
+    // Determine token number starting cleanly at 001
     const prefix = selectedDept.code || 'A';
     const existingTokens = queue
       .filter((q) => q.tokenNumber.startsWith(prefix))
       .map((q) => parseInt(q.tokenNumber.split('-')[1] || '0', 10));
-    const maxNum = existingTokens.length > 0 ? Math.max(...existingTokens) : 44;
+    const maxNum = existingTokens.length > 0 ? Math.max(...existingTokens) : 0;
     const nextNumber = maxNum + 1;
     const tokenNumber = `${prefix}-${String(nextNumber).padStart(3, '0')}`;
 
@@ -987,22 +1016,25 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
 
   const resetQueue = useCallback(() => {
     if (soundEnabled) playClickSound();
-    setQueue(INITIAL_QUEUE);
-    setCompletedQueue(COMPLETED_SEED);
-    setCurrentUserTokenState('A-042');
-    setNotifications(INITIAL_NOTIFICATIONS);
-    setSmsLogs(INITIAL_SMS_LOGS);
+    setQueue([]);
+    setCompletedQueue([]);
+    setCurrentUserTokenState(null);
     try {
-      localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(INITIAL_QUEUE));
-      localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify(COMPLETED_SEED));
-      localStorage.setItem(STORAGE_KEY_USER_TOKEN, 'A-042');
-      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(INITIAL_NOTIFICATIONS));
-      localStorage.setItem(STORAGE_KEY_SMS_LOGS, JSON.stringify(INITIAL_SMS_LOGS));
-      broadcastChange(INITIAL_QUEUE, COMPLETED_SEED);
+      localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY_COMPLETED, JSON.stringify([]));
+      localStorage.removeItem(STORAGE_KEY_USER_TOKEN);
+      broadcastChange([], []);
+      if (typeof window !== 'undefined') {
+        fetch('/api/queue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'SYNC', queue: [], completedQueue: [] }),
+        }).catch(() => {});
+      }
     } catch {}
     addToast({
-      title: 'Demo Queue Reset',
-      description: 'Restored original demo state (A-040 in consultation, A-042 #3).',
+      title: 'Queue Reset',
+      description: 'Active OPD queue cleared cleanly for a fresh operating day.',
       type: 'info',
     });
   }, [soundEnabled, broadcastChange, addToast]);
@@ -1135,6 +1167,20 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
     const myIndex = activeWaiting.findIndex((q) => q.tokenNumber === currentUserToken);
     return myIndex === -1 ? 0 : myIndex + 1;
   }, [queue, currentUserToken]);
+
+  const importOrSyncToken = useCallback((item: QueueItem) => {
+    setQueue((prev) => {
+      const exists = prev.some((q) => q.tokenNumber === item.tokenNumber);
+      if (exists) return prev;
+      const updated = [...prev, item];
+      persistState(updated, completedQueue);
+      return updated;
+    });
+    setCurrentUserTokenState(item.tokenNumber);
+    try {
+      localStorage.setItem(STORAGE_KEY_USER_TOKEN, item.tokenNumber);
+    } catch {}
+  }, [completedQueue, persistState]);
 
   const setFast2SmsApiKey = useCallback((key: string) => {
     setFast2SmsApiKeyState(key);
@@ -1333,6 +1379,7 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
         getMyPosition,
         cancelQueueRegistration,
         refreshQueue,
+        importOrSyncToken,
       }}
     >
       {children}

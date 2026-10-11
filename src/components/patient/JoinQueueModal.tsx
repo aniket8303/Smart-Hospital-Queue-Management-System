@@ -55,11 +55,11 @@ export function JoinQueueModal({
 
   const [selectedDeptId, setSelectedDeptId] = useState<string>(initialDeptId || departments[0]?.id || 'dept-gen-med');
   const [selectedDocId, setSelectedDocId] = useState<string>(initialDoctorId || doctors[0]?.id || 'doc-priya-sharma');
-  const [patientName, setPatientName] = useState<string>('Aniket Parekar');
-  const [phone, setPhone] = useState<string>('+91 91234 56789');
-  const [age, setAge] = useState<number>(28);
+  const [patientName, setPatientName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [age, setAge] = useState<number>(25);
   const [gender, setGender] = useState<'Male' | 'Female' | 'Other'>('Male');
-  const [reason, setReason] = useState<string>('Routine consultation and vitals review');
+  const [reason, setReason] = useState<string>('');
   
   const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'CASH'>('UPI');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -117,7 +117,7 @@ export function JoinQueueModal({
       setIsSubmitting(true);
 
       const item = joinQueue({
-        patientName: patientName.trim() || 'Aniket Parekar',
+        patientName: patientName.trim() || 'Walk-in Patient',
         age,
         gender,
         departmentId: selectedDepartment.id,

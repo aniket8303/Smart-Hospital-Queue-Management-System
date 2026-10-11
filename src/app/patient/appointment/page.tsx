@@ -135,10 +135,10 @@ export default function AppointmentPage() {
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
             <span className="text-slate-400 text-[10px] uppercase font-bold block">Active Token</span>
             <div className="text-xl font-mono font-black text-cyan-600 dark:text-cyan-400 mt-1">
-              {myQueueItem ? myQueueItem.tokenNumber : 'A-042'}
+              {myQueueItem ? myQueueItem.tokenNumber : '—'}
             </div>
             <span className="text-xs text-slate-500 mt-0.5 block">
-              {myQueueItem ? 'Checked in to queue' : 'Ready to check-in'}
+              {myQueueItem ? 'Checked in to queue' : 'Not checked in'}
             </span>
           </div>
         </div>

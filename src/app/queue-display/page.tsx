@@ -233,25 +233,25 @@ export default function QueueDisplayPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
                   <div className="text-2xl font-black font-mono text-slate-200">
-                    {standbyItem1?.tokenNumber || 'A-042'}
+                    {standbyItem1?.tokenNumber || '—'}
                   </div>
                   <div className="text-xs text-slate-400 truncate mt-0.5">
-                    On standby
+                    {standbyItem1 ? 'On standby' : 'Queue clear'}
                   </div>
                   <div className="text-[10px] text-cyan-400 font-mono mt-1">
-                    ~{standbyItem1?.estimatedWaitMinutes || 15} min
+                    {standbyItem1 ? `~${standbyItem1.estimatedWaitMinutes} min` : 'No wait'}
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800">
                   <div className="text-2xl font-black font-mono text-slate-400">
-                    {standbyItem2?.tokenNumber || 'A-043'}
+                    {standbyItem2?.tokenNumber || '—'}
                   </div>
                   <div className="text-xs text-slate-500 truncate mt-0.5">
-                    On standby
+                    {standbyItem2 ? 'On standby' : 'Queue clear'}
                   </div>
                   <div className="text-[10px] text-slate-500 font-mono mt-1">
-                    ~{standbyItem2?.estimatedWaitMinutes || 20} min
+                    {standbyItem2 ? `~${standbyItem2.estimatedWaitMinutes} min` : 'No wait'}
                   </div>
                 </div>
               </div>

@@ -30,20 +30,61 @@ function PatientDashboardContent() {
     setCurrentUserToken, 
     setCurrentRole, 
     joinQueue, 
+    importOrSyncToken,
     addToast 
   } = useQueue();
 
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
-  // Handle QR scanning redirects e.g. /patient?token=A-042 or /patient?action=get-token
+  // Handle QR scanning redirects e.g. /patient?token=A-001 or /patient?action=get-token
   useEffect(() => {
     const tokenParam = searchParams.get('token');
     const actionParam = searchParams.get('action');
 
     if (tokenParam) {
       setCurrentRole('patient');
-      setCurrentUserToken(tokenParam);
+      const existingInQueue = queue.find((q) => q.tokenNumber === tokenParam);
+      if (!existingInQueue) {
+        // Construct token pass from QR metadata so phone displays it immediately
+        const nameParam = searchParams.get('name') || 'Patient';
+        const docParam = searchParams.get('doc') || 'Dr. Priya Sharma';
+        const deptParam = searchParams.get('dept') || 'General Medicine';
+        const roomParam = searchParams.get('room') || 'Room 102';
+        const posParam = Number(searchParams.get('pos')) || 1;
+        const waitParam = Number(searchParams.get('wait')) || 5;
+
+        const syncedItem: any = {
+          id: `q-sync-${tokenParam}-${Date.now()}`,
+          tokenNumber: tokenParam,
+          patient: {
+            id: `p-sync-${Date.now()}`,
+            name: nameParam,
+            age: 28,
+            gender: 'Male',
+            phone: '',
+            uhid: `UHID-2026-${tokenParam.replace(/\D/g, '') || '001'}`,
+          },
+          doctorId: 'doc-priya-sharma',
+          doctorName: docParam,
+          departmentId: 'dept-gen-med',
+          departmentName: deptParam,
+          roomNumber: roomParam,
+          joinedAt: new Date().toISOString(),
+          status: posParam === 1 ? 'NEXT' : 'WAITING',
+          priority: 'NORMAL',
+          source: 'KIOSK',
+          tokenType: 'DIGITAL',
+          queueDay: new Date().toISOString().split('T')[0],
+          consultationFee: 300,
+          estimatedWaitMinutes: waitParam,
+        };
+
+        importOrSyncToken(syncedItem);
+      } else {
+        setCurrentUserToken(tokenParam);
+      }
+
       addToast({
         title: `Mobile Token #${tokenParam} Connected!`,
         description: 'Your digital pass is active on this device.',
@@ -59,12 +100,12 @@ function PatientDashboardContent() {
       if (!currentUserToken) {
         const newItem = joinQueue({
           patientName: 'Mobile Patient',
-          age: 32,
+          age: 30,
           gender: 'Other',
           departmentId: 'dept-gen-med',
           doctorId: 'doc-priya-sharma',
           reason: 'Mobile QR Instant Check-in',
-          phone: '+91 98765 43210',
+          phone: '',
           source: 'MOBILE',
           tokenType: 'DIGITAL',
           consultationFee: 300,
@@ -88,10 +129,10 @@ function PatientDashboardContent() {
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
-  }, [searchParams, currentUserToken, setCurrentRole, setCurrentUserToken, joinQueue, addToast]);
+  }, [searchParams, currentUserToken, queue, setCurrentRole, setCurrentUserToken, joinQueue, importOrSyncToken, addToast]);
 
   const myItem = queue.find((q) => q.tokenNumber === currentUserToken);
-  const patientDisplayName = myItem?.patient?.name || 'Aniket';
+  const patientDisplayName = myItem?.patient?.name || 'Patient';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -266,6 +307,14 @@ function PatientDashboardContent() {
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         tokenNumber={currentUserToken || undefined}
+        meta={myItem ? {
+          name: myItem.patient.name,
+          doc: myItem.doctorName,
+          dept: myItem.departmentName,
+          room: myItem.roomNumber,
+          pos: queue.findIndex((q) => q.tokenNumber === myItem.tokenNumber) + 1 || 1,
+          wait: myItem.estimatedWaitMinutes,
+        } : undefined}
       />
     </div>
   );

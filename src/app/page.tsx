@@ -200,9 +200,11 @@ export default function LandingPage() {
                   Token
                 </span>
                 <span className="text-3xl sm:text-4xl font-black font-mono text-cyan-700 dark:text-cyan-300 mt-1 block">
-                  {myQueueItem?.tokenNumber || 'A-042'}
+                  {myQueueItem?.tokenNumber || (queue[0]?.tokenNumber ?? '—')}
                 </span>
-                <span className="text-[11px] text-cyan-800 dark:text-cyan-400 mt-0.5 block font-bold">Aniket Parekar</span>
+                <span className="text-[11px] text-cyan-800 dark:text-cyan-400 mt-0.5 block font-bold truncate">
+                  {myQueueItem?.patient?.name || queue[0]?.patient?.name || 'Live OPD Stream'}
+                </span>
               </div>
 
               {/* POSITION */}
@@ -211,7 +213,7 @@ export default function LandingPage() {
                   Position
                 </span>
                 <span className="text-3xl sm:text-4xl font-black font-mono text-slate-950 dark:text-white mt-1 block">
-                  03
+                  {myQueueItem ? String(queue.findIndex(q => q.tokenNumber === myQueueItem.tokenNumber) + 1 || 1).padStart(2, '0') : (queue.length > 0 ? '01' : '—')}
                 </span>
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 block font-medium">in General Medicine</span>
               </div>
@@ -222,7 +224,7 @@ export default function LandingPage() {
                   Est. Wait
                 </span>
                 <span className="text-3xl sm:text-4xl font-black font-mono text-amber-600 dark:text-amber-400 mt-1 block">
-                  15 min
+                  {myQueueItem ? `${myQueueItem.estimatedWaitMinutes} min` : (queue[0] ? `~${queue[0].estimatedWaitMinutes} min` : 'No wait')}
                 </span>
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 block font-medium">~5m per consultation</span>
               </div>
@@ -233,7 +235,7 @@ export default function LandingPage() {
                   Status
                 </span>
                 <span className="text-xl sm:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2 block">
-                  WAITING
+                  {myQueueItem?.status || (queue[0]?.status ?? 'OPEN')}
                 </span>
                 <span className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">Room 102 Assigned</span>
               </div>
