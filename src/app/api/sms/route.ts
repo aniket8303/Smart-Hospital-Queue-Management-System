@@ -44,6 +44,9 @@ export async function POST(request: Request) {
       }, { status: 200 });
     }
 
+    // Sanitize message body (strip non-standard characters like tildes that some telco gateways reject)
+    const sanitizedMessage = message.replace(/[~]/g, '').trim();
+
     // Dispatch real SMS via Fast2SMS Quick Route (bulkV2)
     const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
       method: 'POST',
@@ -53,13 +56,15 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         route: 'q',
-        message: message,
+        message: sanitizedMessage,
         language: 'english',
+        flash: 0,
         numbers: digits,
       }),
     });
 
     const data = await response.json().catch(() => null);
+    console.log('[Fast2SMS Gateway Response]:', response.status, data);
 
     if (response.ok && data && (data.return === true || data.status_code === 200)) {
       return NextResponse.json({
@@ -71,7 +76,17 @@ export async function POST(request: Request) {
         details: data
       });
     } else {
-      const errMsg = data?.message?.[0] || data?.message || `HTTP ${response.status} from Fast2SMS`;
+      let errMsg = 'Failed to dispatch SMS';
+      if (Array.isArray(data?.message)) {
+        errMsg = data.message.join('; ');
+      } else if (typeof data?.message === 'string') {
+        errMsg = data.message;
+      } else if (data?.error) {
+        errMsg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      } else {
+        errMsg = `HTTP ${response.status} from Fast2SMS carrier`;
+      }
+
       return NextResponse.json({
         success: false,
         provider: 'FAST2SMS',

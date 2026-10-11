@@ -1170,7 +1170,7 @@ export function QueueProvider({ children }: { children: React.ReactNode }) {
 
   const importOrSyncToken = useCallback((item: QueueItem) => {
     setQueue((prev) => {
-      const exists = prev.some((q) => q.tokenNumber === item.tokenNumber);
+      const exists = prev.some((q) => q.tokenNumber === item.tokenNumber || q.id === item.id);
       if (exists) return prev;
       const updated = [...prev, item];
       persistState(updated, completedQueue);

@@ -1004,7 +1004,7 @@ export default function KioskPage() {
                     });
                     return;
                   }
-                  const smsBody = `MediQueue: Token ${generatedItem?.tokenNumber || ''} confirmed at Diksha Hospital for ${activeDoc.name} in ${activeDoc.roomNumber}. Est wait: ~${generatedItem?.estimatedWaitMinutes || 5} min.`;
+                  const smsBody = `MediQueue: Token ${generatedItem?.tokenNumber || ''} confirmed at Diksha Hospital for ${activeDoc.name} in ${activeDoc.roomNumber}. Est wait: approx ${generatedItem?.estimatedWaitMinutes || 5} min.`;
                   addToast({
                     title: 'Sending SMS...',
                     description: `Contacting carrier for ${patientPhone}...`,
